@@ -19,7 +19,7 @@ MAX_CHARS = int(os.getenv("MAX_TEXT_CHARS", "12000"))  # keeps the cost under co
 MIN_GOOD_TEXT = 300  # below this much text the AI is mostly guessing
 MAX_ATTEMPTS = 3
 
-# Status values. Agree these names with the crawler owner (Memoona).
+# Status values.
 STATUS_CLASSIFIED = "classified"
 STATUS_FAILED = "classify_failed"
 STATUS_NEEDS_REVIEW = "needs_review"
