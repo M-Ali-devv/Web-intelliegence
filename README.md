@@ -115,14 +115,17 @@ Bookkeeping columns written by the crawler: `crawl_error`, `pages_crawled`,
 ```bash
 .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/pytest -q --cov=app.crawler --cov=app.crawler_cli
-# → 97 passed, 100% statement coverage
+# → 108 passed, 100% statement coverage of the crawler
 ```
 
 All HTTP is mocked — tests run offline and are CI-friendly. Coverage spans
 happy paths (multi-page crawl, profile building, queue flow) and error paths
 (SSRF, redirect loops/attacks, timeouts, 4xx/5xx retries, robots rules,
 oversize/non-HTML content, malformed & non-Latin HTML, crash recovery,
-double-run lock, CLI failures).
+double-run lock, CLI failures). 11 tests cover the web layer too
+(`/import`, `/import-sample`, `/crawl`, `/crawl/{id}`, page rendering and
+a full UI click → background run → refreshed page flow via FastAPI
+`TestClient`).
 
 ## Known limits (Phase 2, per the requirements document)
 

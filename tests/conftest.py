@@ -13,6 +13,7 @@ def db(tmp_path, monkeypatch):
     """Every test gets its own empty SQLite file — the real data/ DB is never touched."""
     engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
     Base.metadata.create_all(engine)
+    monkeypatch.setattr(database, "engine", engine)
     monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
     yield engine
 
