@@ -18,6 +18,10 @@ target market) with Excel-ready export.
 ## Quickstart
 
 ```bash
+git clone https://github.com/M-Ali-devv/Web-intelliegence.git
+cd Web-intelliegence
+git checkout feature/crawler      # this PR's branch (not needed after merge)
+
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/uvicorn app.main:app --reload       # web UI at http://127.0.0.1:8000
