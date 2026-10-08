@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Step 1 — Save the URL list</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #e7e5e4;
+      --paper: #fafaf9;
+      --card: #ffffff;
+      --accent: #9a3412;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+      color: var(--ink);
+      background: var(--paper);
+    }
+    main { max-width: 1100px; margin: 0 auto; padding: 40px 20px 64px; }
+    .step {
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-family: "Segoe UI", sans-serif;
+      font-size: 12px;
+      color: var(--accent);
+      margin: 0 0 8px;
+    }
+    h1 { font-weight: 500; font-size: 34px; margin: 0 0 12px; }
+    p { line-height: 1.5; color: var(--muted); }
+    form, .notice, table { background: var(--card); border: 1px solid var(--line); }
+    form { padding: 20px; display: grid; gap: 12px; }
+    label { font-family: "Segoe UI", sans-serif; font-size: 13px; }
+    textarea, input[type="text"] {
+      width: 100%;
+      font: 15px/1.4 "Segoe UI", sans-serif;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+    }
+    textarea { min-height: 140px; resize: vertical; }
+    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    button, .file input { font-family: "Segoe UI", sans-serif; }
+    button {
+      background: var(--ink);
+      color: white;
+      border: 0;
+      padding: 10px 16px;
+      cursor: pointer;
+    }
+    button.secondary { background: white; color: var(--ink); border: 1px solid var(--line); }
+    .notice { margin: 16px 0; padding: 12px 16px; }
+    .table-wrap { overflow-x: auto; margin-top: 20px; border: 1px solid var(--line); background: var(--card); }
+    table { width: 100%; border-collapse: collapse; border: 0; min-width: 1280px; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; white-space: nowrap; }
+    th { font-family: "Segoe UI", sans-serif; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+    td { font-family: "Segoe UI", sans-serif; font-size: 14px; }
+    .status {
+      display: inline-block;
+      border: 1px solid var(--line);
+      padding: 2px 8px;
+      font-size: 12px;
+    }
+    .empty { padding: 24px; color: var(--muted); }
+    .blank { color: #a8a29e; }
+    .roles { font-family: "Segoe UI", sans-serif; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="step">Step 1 of 6</p>
+    <h1>Save the URL list</h1>
+    <p>
+      Paste website addresses, or upload a CSV. Each company is one row. The new columns
+      are empty until the other two members fill them.
+    </p>
+    <p class="roles">
+      Member 1 fills <strong>Clean text</strong>.
+      Member 2 fills <strong>Company name</strong>, <strong>Description</strong>,
+      <strong>Business type</strong>, <strong>Industry</strong>, <strong>Niche</strong>,
+      <strong>Products</strong>, <strong>Services</strong>, <strong>Confidence</strong>,
+      and <strong>Evidence</strong>.
+    </p>
+
+    {% if message %}
+    <div class="notice">{{ message }}</div>
+    {% endif %}
+
+    <form method="post" action="/import" enctype="multipart/form-data">
+      <label for="urls">One website per line</label>
+      <textarea id="urls" name="urls" placeholder="https://stripe.com&#10;https://openai.com"></textarea>
+      <label for="source_batch">Batch name (optional)</label>
+      <input id="source_batch" name="source_batch" type="text" placeholder="sample">
+      <div class="row">
+        <label class="file">CSV or text file
+          <input name="file" type="file" accept=".csv,.txt,text/csv,text/plain">
+        </label>
+        <button type="submit">Import</button>
+        <button class="secondary" type="submit" formaction="/import-sample">Load sample list</button>
+      </div>
+    </form>
+
+    {% if websites %}
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Saved as</th>
+          <th>Status</th>
+          <th>Clean text</th>
+          <th>Company name</th>
+          <th>Description</th>
+          <th>Business type</th>
+          <th>Industry</th>
+          <th>Niche</th>
+          <th>Products</th>
+          <th>Services</th>
+          <th>Confidence</th>
+          <th>Evidence</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for site in websites %}
+        <tr>
+          <td>{{ site.id }}</td>
+          <td>{{ site.normalized_website }}</td>
+          <td><span class="status">{{ site.status }}</span></td>
+          <td class="blank">{{ site.clean_text or "empty" }}</td>
+          <td class="blank">{{ site.company_name or "empty" }}</td>
+          <td class="blank">{{ site.description or "empty" }}</td>
+          <td class="blank">{{ site.business_type or "empty" }}</td>
+          <td class="blank">{{ site.industry or "empty" }}</td>
+          <td class="blank">{{ site.niche or "empty" }}</td>
+          <td class="blank">{{ site.products or "empty" }}</td>
+          <td class="blank">{{ site.services or "empty" }}</td>
+          <td class="blank">{{ site.confidence if site.confidence is not none else "empty" }}</td>
+          <td class="blank">{{ site.evidence or "empty" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="empty">No websites yet. Paste a few URLs, or load the sample list.</div>
+    {% endif %}
+  </main>
+</body>
+</html>

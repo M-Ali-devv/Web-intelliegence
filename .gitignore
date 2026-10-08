@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+data/*.db
+node_modules/
+.env
+innerlight-admin/
+innerlight-backend/
+db-backups/
