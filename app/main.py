@@ -8,10 +8,10 @@ Run from the project folder:
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import BackgroundTasks, FastAPI, File, Form, Request, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.crawler.runner import run as run_crawl
 from app.database import get_session, init_db
@@ -20,6 +20,27 @@ from app.models import Website
 
 ROOT = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(ROOT / "templates"))
+DEFAULT_PAGE_SIZE = 5
+MAX_PAGE_SIZE = 20
+
+
+def preview_clean_text(text: str | None, limit: int = 220) -> str:
+    """Short readable blurb for the card. Full text stays in the expand panel."""
+    if not text:
+        return ""
+    lines = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip() and not line.startswith("=== PAGE:")
+    ]
+    joined = " ".join(lines)
+    joined = " ".join(joined.split())
+    if len(joined) <= limit:
+        return joined
+    return joined[: limit - 1].rsplit(" ", 1)[0] + "…"
+
+
+templates.env.filters["preview_clean"] = preview_clean_text
 
 
 @asynccontextmanager
@@ -47,31 +68,75 @@ def home(
     invalid: int = 0,
     imported: int = 0,
     crawl: int = 0,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
 ):
     with get_session() as session:
-        websites = session.scalars(select(Website).order_by(Website.id.desc())).all()
+        total = session.scalar(select(func.count()).select_from(Website)) or 0
+        classified = session.scalar(
+            select(func.count()).select_from(Website).where(
+                Website.status.in_(("classified", "needs_review"))
+            )
+        ) or 0
+        crawled = session.scalar(
+            select(func.count()).select_from(Website).where(Website.status == "crawled")
+        ) or 0
+        pending = session.scalar(
+            select(func.count()).select_from(Website).where(
+                Website.status.in_(("pending", "crawling"))
+            )
+        ) or 0
+        issues = session.scalar(
+            select(func.count()).select_from(Website).where(
+                Website.status.in_(
+                    ("failed", "blocked", "unreachable", "robots_blocked", "invalid", "classify_failed", "empty")
+                )
+            )
+        ) or 0
+        total_pages = max(1, (total + per_page - 1) // per_page) if total else 1
+        page = min(page, total_pages)
+        offset = (page - 1) * per_page
+        websites = session.scalars(
+            select(Website).order_by(Website.id.asc()).offset(offset).limit(per_page)
+        ).all()
         session.expunge_all()
 
     if imported:
         message = _message(added, duplicates, invalid)
     elif crawl:
-        message = (
-            "Crawl run started in the background. Refresh this page in a "
-            "moment to watch the Clean text column fill in."
-        )
+        message = "Crawl started. Updating results shortly…"
     else:
         message = None
+
+    start = offset + 1 if total else 0
+    end = min(offset + len(websites), total)
     return templates.TemplateResponse(
         request,
         "index.html",
-        {"websites": websites, "message": message},
+        {
+            "websites": websites,
+            "message": message,
+            "crawl": bool(crawl),
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "total_pages": total_pages,
+            "showing_start": start,
+            "showing_end": end,
+            "stats": {
+                "total": total,
+                "classified": classified,
+                "crawled": crawled,
+                "pending": pending,
+                "issues": issues,
+            },
+        },
     )
 
 
 @app.post("/import")
 async def import_list(
     urls: str = Form(""),
-    source_batch: str = Form(""),
     file: UploadFile | None = File(None),
 ):
     text = urls
@@ -79,24 +144,7 @@ async def import_list(
         text += "\n" + (await file.read()).decode("utf-8", errors="replace")
 
     with get_session() as session:
-        result = import_urls(session, text, source_batch or None)
-
-    return RedirectResponse(
-        (
-            "/?imported=1"
-            f"&added={result.added}"
-            f"&duplicates={len(result.duplicates)}"
-            f"&invalid={len(result.invalid)}"
-        ),
-        status_code=303,
-    )
-
-
-@app.post("/import-sample")
-def import_sample():
-    sample = (ROOT / "sample_urls.csv").read_text(encoding="utf-8")
-    with get_session() as session:
-        result = import_urls(session, sample, "sample")
+        result = import_urls(session, text)
 
     return RedirectResponse(
         (

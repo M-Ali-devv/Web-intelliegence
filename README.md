@@ -35,7 +35,6 @@ Open **http://127.0.0.1:8000** and import your URLs (rows start as `pending`):
 - **Paste box** — one URL per line (or CSV content pasted directly)
 - **CSV upload** — header row containing one of `url`, `original_url`,
   `website`, `website_url`, `link` (case-insensitive)
-- **"Load sample list"** — 4 demo sites + 1 deliberate invalid line
 
 Then crawl — UI button or CLI:
 
@@ -139,7 +138,7 @@ happy paths (multi-page crawl, profile building, queue flow) and error paths
 (SSRF, redirect loops/attacks, timeouts, 4xx/5xx retries, robots rules,
 oversize/non-HTML content, malformed & non-Latin HTML, crash recovery,
 double-run lock, CLI failures). 11 tests cover the web layer too
-(`/import`, `/import-sample`, `/crawl`, `/crawl/{id}`, page rendering and
+(`/import`, `/crawl`, `/crawl/{id}`, page rendering and
 a full UI click → background run → refreshed page flow via FastAPI
 `TestClient`).
 

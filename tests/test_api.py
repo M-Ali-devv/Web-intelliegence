@@ -59,9 +59,11 @@ def test_home_shows_crawl_error_on_status_badge(make_website, client):
     assert "HTTP 403 from https://blocked.test" in response.text
 
 
-def test_crawl_notice_shown_after_trigger(client):
+def test_crawl_toast_shown_after_trigger(client):
     response = client.get("/", params={"crawl": "1"})
-    assert "Crawl run started in the background" in response.text
+    assert "Crawl started" in response.text
+    assert "Updating results shortly" in response.text
+    assert "toast-stack" in response.text
 
 
 # --- import endpoint -------------------------------------------------------
@@ -70,7 +72,7 @@ def test_crawl_notice_shown_after_trigger(client):
 def test_import_endpoint_adds_rows(client):
     response = client.post(
         "/import",
-        data={"urls": "https://alpha.test\nhttps://beta.test", "source_batch": "team"},
+        data={"urls": "https://alpha.test\nhttps://beta.test"},
         follow_redirects=True,
     )
 
@@ -78,7 +80,6 @@ def test_import_endpoint_adds_rows(client):
     saved = rows()
     assert len(saved) == 2
     assert all(site.status == "pending" for site in saved)
-    assert all(site.source_batch == "team" for site in saved)
 
 
 def test_import_endpoint_reports_duplicates_and_invalid(client):
@@ -87,14 +88,6 @@ def test_import_endpoint_reports_duplicates_and_invalid(client):
     response = client.post("/import", data=payload, follow_redirects=True)
 
     assert "Added 0" in response.text
-    assert "Skipped 1 duplicates" in response.text
-    assert "Rejected 1" in response.text
-
-
-def test_import_sample_button(client):
-    response = client.post("/import-sample", follow_redirects=True)
-    # sample file: 4 unique sites, 1 in-file duplicate, 1 invalid line
-    assert "Added 4" in response.text
     assert "Skipped 1 duplicates" in response.text
     assert "Rejected 1" in response.text
 
