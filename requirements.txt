@@ -1,5 +1,9 @@
+
 fastapi
 uvicorn
 sqlalchemy
 jinja2
 python-multipart
+google-genai
+pydantic
+python-dotenv
