@@ -58,6 +58,10 @@
     th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; white-space: nowrap; }
     th { font-family: "Segoe UI", sans-serif; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
     td { font-family: "Segoe UI", sans-serif; font-size: 14px; }
+    td.clean { white-space: normal; max-width: 460px; font-size: 13px; line-height: 1.45; }
+    td.actions form { display: inline; padding: 0; border: 0; background: transparent; }
+    .more { color: var(--muted); font-size: 12px; }
+    .hint { color: var(--muted); font-size: 13px; font-family: "Segoe UI", sans-serif; }
     .status {
       display: inline-block;
       border: 1px solid var(--line);
@@ -103,6 +107,13 @@
       </div>
     </form>
 
+    <form method="post" action="/crawl">
+      <div class="row">
+        <button type="submit">Crawl pending websites</button>
+        <span class="hint">Reads each site and saves cleaned pages into Clean text.</span>
+      </div>
+    </form>
+
     {% if websites %}
     <div class="table-wrap">
     <table>
@@ -121,6 +132,7 @@
           <th>Services</th>
           <th>Confidence</th>
           <th>Evidence</th>
+          <th>Re-crawl</th>
         </tr>
       </thead>
       <tbody>
@@ -128,8 +140,8 @@
         <tr>
           <td>{{ site.id }}</td>
           <td>{{ site.normalized_website }}</td>
-          <td><span class="status">{{ site.status }}</span></td>
-          <td class="blank">{{ site.clean_text or "empty" }}</td>
+          <td><span class="status" title="{{ site.crawl_error or '' }}">{{ site.status }}{% if site.pages_crawled %} · {{ site.pages_crawled }} page(s){% endif %}</span></td>
+          <td class="clean blank">{% if site.clean_text %}{{ site.clean_text[:200] }}{% if site.clean_text|length > 200 %}<span class="more"> … {{ site.clean_text|length }} chars</span>{% endif %}{% else %}empty{% endif %}</td>
           <td class="blank">{{ site.company_name or "empty" }}</td>
           <td class="blank">{{ site.description or "empty" }}</td>
           <td class="blank">{{ site.business_type or "empty" }}</td>
@@ -139,6 +151,11 @@
           <td class="blank">{{ site.services or "empty" }}</td>
           <td class="blank">{{ site.confidence if site.confidence is not none else "empty" }}</td>
           <td class="blank">{{ site.evidence or "empty" }}</td>
+          <td class="actions">
+            <form method="post" action="/crawl/{{ site.id }}">
+              <button class="secondary" type="submit">Re-crawl</button>
+            </form>
+          </td>
         </tr>
         {% endfor %}
       </tbody>

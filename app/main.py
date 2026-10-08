@@ -8,11 +8,12 @@ Run from the project folder:
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 
+from app.crawler.runner import run as run_crawl
 from app.database import get_session, init_db
 from app.importer import import_urls
 from app.models import Website
@@ -39,12 +40,27 @@ def _message(added: int, duplicates: int, invalid: int) -> str:
 
 
 @app.get("/")
-def home(request: Request, added: int = 0, duplicates: int = 0, invalid: int = 0, imported: int = 0):
+def home(
+    request: Request,
+    added: int = 0,
+    duplicates: int = 0,
+    invalid: int = 0,
+    imported: int = 0,
+    crawl: int = 0,
+):
     with get_session() as session:
         websites = session.scalars(select(Website).order_by(Website.id.desc())).all()
         session.expunge_all()
 
-    message = _message(added, duplicates, invalid) if imported else None
+    if imported:
+        message = _message(added, duplicates, invalid)
+    elif crawl:
+        message = (
+            "Crawl run started in the background. Refresh this page in a "
+            "moment to watch the Clean text column fill in."
+        )
+    else:
+        message = None
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -91,3 +107,25 @@ def import_sample():
         ),
         status_code=303,
     )
+
+
+async def _crawl_background(limit: int | None, site_ids: list[int] | None, force: bool):
+    summary = await run_crawl(limit=limit, site_ids=site_ids, force=force)
+    print(
+        f"[crawl] {summary.total} site(s) in {summary.seconds}s — "
+        + ", ".join(f"{k}={v}" for k, v in sorted(summary.counts.items()))
+    )
+
+
+@app.post("/crawl")
+async def crawl_pending(background: BackgroundTasks, limit: int = Form(0)):
+    """Queue a crawl run for every pending row (or the first `limit` rows)."""
+    background.add_task(_crawl_background, limit or None, None, False)
+    return RedirectResponse("/?crawl=1", status_code=303)
+
+
+@app.post("/crawl/{site_id}")
+async def crawl_one_site(background: BackgroundTasks, site_id: int):
+    """Re-crawl a single row no matter what status it has."""
+    background.add_task(_crawl_background, None, [site_id], True)
+    return RedirectResponse(f"/?crawl=1&site={site_id}", status_code=303)
