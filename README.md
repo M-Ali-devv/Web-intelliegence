@@ -143,6 +143,17 @@ double-run lock, CLI failures). 11 tests cover the web layer too
 a full UI click → background run → refreshed page flow via FastAPI
 `TestClient`).
 
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `ERROR: [Errno 98] Address already in use` | An old server is on port 8000: `fuser -k 8000/tcp`, or run on another port: `.venv/bin/uvicorn app.main:app --reload --port 8001` |
+| Crawl button clicked, nothing changed | UI runs in background — wait ~10s and refresh the page |
+| Status stays `pending` after crawl | No internet, or row is `crawling` (stuck rows auto-reset on next run) |
+| Status `blocked` / `robots_blocked` | Normal — that site's bot protection or robots.txt refused us; `clean_text` stays empty |
+| Windows users | Use `.venv\Scripts\` instead of `.venv/bin/` in every command |
+| `pytest` not found | Install dev deps first: `.venv/bin/pip install -r requirements-dev.txt` |
+
 ## Known limits (Phase 2, per the requirements document)
 
 - JavaScript-only sites are fetched as static HTML (no Playwright yet).
