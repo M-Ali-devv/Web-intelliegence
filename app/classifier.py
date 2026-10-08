@@ -14,7 +14,7 @@ from app.taxonomy import BUSINESS_TYPES, CUSTOMER_TYPES, INDUSTRIES
 
 load_dotenv()
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 MAX_CHARS = int(os.getenv("MAX_TEXT_CHARS", "12000"))  # keeps the cost under control
 MIN_GOOD_TEXT = 300  # below this much text the AI is mostly guessing
 MAX_ATTEMPTS = 3

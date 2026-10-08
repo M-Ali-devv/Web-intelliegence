@@ -29,14 +29,31 @@ def _clean_line(text: str) -> str:
     return _WS.sub(" ", text).strip()
 
 
+def _class_names(node: Tag) -> list[str]:
+    value = node.get("class")
+    if not value:
+        return []
+    if isinstance(value, str):
+        return [value]
+    return [str(item) for item in value]
+
+
 def _drop_noise(soup: BeautifulSoup) -> None:
     for tag_name in DROP_TAGS:
         for node in soup.find_all(tag_name):
             node.decompose()
+
+    # Collect first, then remove. Decomposing while iterating can leave
+    # half-removed nodes whose attrs are None (seen on github.com).
+    to_drop: list[Tag] = []
     for node in soup.find_all(True):
-        hints = " ".join(node.get("class", []) + [str(node.get("id", ""))]).lower()
+        if not isinstance(node, Tag) or node.attrs is None:
+            continue
+        hints = " ".join(_class_names(node) + [str(node.get("id") or "")]).lower()
         if any(hint in hints for hint in DROP_NAME_HINTS):
-            node.decompose()
+            to_drop.append(node)
+    for node in to_drop:
+        node.decompose()
 
 
 def extract_page(html: bytes, url: str) -> tuple[str, str]:
