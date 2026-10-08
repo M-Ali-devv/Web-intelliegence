@@ -17,17 +17,27 @@ target market) with Excel-ready export.
 
 ## Quickstart
 
+Requires **Python 3.10+**.
+
 ```bash
 git clone https://github.com/M-Ali-devv/Web-intelliegence.git
 cd Web-intelliegence
 git checkout feature/crawler      # this PR's branch (not needed after merge)
+# already cloned? run: git fetch && git checkout feature/crawler
 
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/uvicorn app.main:app --reload       # web UI at http://127.0.0.1:8000
 ```
 
-Import URLs (paste box, CSV upload, or "Load sample list"), then crawl:
+Open **http://127.0.0.1:8000** and import your URLs (rows start as `pending`):
+
+- **Paste box** — one URL per line (or CSV content pasted directly)
+- **CSV upload** — header row containing one of `url`, `original_url`,
+  `website`, `website_url`, `link` (case-insensitive)
+- **"Load sample list"** — 4 demo sites + 1 deliberate invalid line
+
+Then crawl — UI button or CLI:
 
 ```bash
 .venv/bin/python -m app.crawler_cli            # crawl all pending rows
@@ -36,6 +46,8 @@ Import URLs (paste box, CSV upload, or "Load sample list"), then crawl:
 ```
 
 Or click **Crawl pending websites** / per-row **Re-crawl** in the web UI.
+The UI run is a background task: wait ~10 seconds, refresh, and watch the
+*Status* / *Clean text* columns update (hover the status badge for errors).
 
 ---
 
@@ -72,10 +84,13 @@ Rules the AI step can rely on:
 
 ### Rows to process (SQL)
 
-```sql
+The database is `data/websites.db` (SQLite, created on first run).
+
+```bash
+sqlite3 data/websites.db "
 SELECT id, normalized_website, clean_text
 FROM websites
-WHERE status = 'crawled' AND clean_text IS NOT NULL;
+WHERE status = 'crawled' AND clean_text IS NOT NULL;"
 ```
 
 After classifying, fill only the AI-owned columns (all exist already, nullable):
@@ -114,6 +129,7 @@ Bookkeeping columns written by the crawler: `crawl_error`, `pages_crawled`,
 
 ```bash
 .venv/bin/pip install -r requirements-dev.txt
+.venv/bin/pytest -q                                    # quick check: 108 passed
 .venv/bin/pytest -q --cov=app.crawler --cov=app.crawler_cli
 # → 108 passed, 100% statement coverage of the crawler
 ```
