@@ -7,3 +7,6 @@ node_modules/
 innerlight-admin/
 innerlight-backend/
 db-backups/
+.coverage
+htmlcov/
+.pytest_cache/
