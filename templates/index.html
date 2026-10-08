@@ -3,167 +3,1105 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Step 1 — Save the URL list</title>
+  <title>Website Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
   <style>
     :root {
       color-scheme: light;
-      --ink: #1c1917;
-      --muted: #57534e;
-      --line: #e7e5e4;
-      --paper: #fafaf9;
+      --ink: #14201b;
+      --muted: #5f6f68;
+      --soft: #8a9891;
+      --line: #d7e0db;
+      --paper: #f3f6f4;
       --card: #ffffff;
-      --accent: #9a3412;
+      --accent: #0f6b4c;
+      --accent-soft: #e5f3ec;
+      --warn: #9a3412;
+      --warn-soft: #fff1e8;
+      --danger: #9f1239;
+      --danger-soft: #ffe4e8;
+      --ok: #0f6b4c;
+      --ok-soft: #e5f3ec;
+      --shadow: 0 10px 30px rgba(20, 32, 27, 0.06);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+      min-height: 100vh;
+      font-family: "DM Sans", "Segoe UI", sans-serif;
       color: var(--ink);
-      background: var(--paper);
+      background:
+        radial-gradient(ellipse 80% 50% at 100% -10%, rgba(15, 107, 76, 0.12), transparent 55%),
+        radial-gradient(ellipse 50% 40% at 0% 100%, rgba(20, 32, 27, 0.04), transparent 50%),
+        linear-gradient(180deg, #e8efeA 0%, var(--paper) 38%, #f7f8f6 100%);
     }
-    main { max-width: 1100px; margin: 0 auto; padding: 40px 20px 64px; }
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 28px 20px 80px;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 28px;
+      padding: 14px 18px;
+      border: 1px solid rgba(215, 224, 219, 0.9);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(145deg, #147a57 0%, #0f6b4c 55%, #0b4f39 100%);
+      color: white;
+      box-shadow: 0 8px 18px rgba(15, 107, 76, 0.28);
+      flex: 0 0 auto;
+    }
+    .brand-mark svg { width: 22px; height: 22px; display: block; }
+    .brand-copy { min-width: 0; }
+    .brand-copy strong {
+      display: block;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .brand-copy span {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .topbar-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .topbar-pill i {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      display: block;
+      box-shadow: 0 0 0 3px rgba(15, 107, 76, 0.15);
+    }
+    .hero {
+      margin-bottom: 22px;
+      animation: rise 420ms ease both;
+    }
     .step {
+      margin: 0 0 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    h1 {
+      margin: 0;
+      font-family: "Instrument Serif", Georgia, serif;
+      font-weight: 400;
+      font-size: clamp(38px, 5.2vw, 52px);
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+      animation: rise 480ms ease both;
+    }
+    @media (max-width: 900px) {
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 520px) {
+      .stats { grid-template-columns: 1fr 1fr; }
+      .topbar { flex-direction: column; align-items: flex-start; }
+    }
+    .stat {
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+      min-height: 86px;
+    }
+    .stat em {
+      display: block;
+      font-style: normal;
+      font-size: 11px;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      font-family: "Segoe UI", sans-serif;
-      font-size: 12px;
-      color: var(--accent);
-      margin: 0 0 8px;
+      color: var(--soft);
+      font-weight: 700;
+      margin-bottom: 8px;
     }
-    h1 { font-weight: 500; font-size: 34px; margin: 0 0 12px; }
-    p { line-height: 1.5; color: var(--muted); }
-    form, .notice, table { background: var(--card); border: 1px solid var(--line); }
-    form { padding: 20px; display: grid; gap: 12px; }
-    label { font-family: "Segoe UI", sans-serif; font-size: 13px; }
+    .stat strong {
+      display: block;
+      font-family: "Instrument Serif", Georgia, serif;
+      font-size: 30px;
+      font-weight: 400;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+    .stat small {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .stat.accent { background: linear-gradient(180deg, #f4faf7 0%, #ffffff 100%); }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+      margin-bottom: 18px;
+      animation: rise 540ms ease both;
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .panel-head h2 {
+      margin: 0 0 6px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .panel-head .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .panel-head form {
+      margin: 0;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+    }
     textarea, input[type="text"] {
       width: 100%;
-      font: 15px/1.4 "Segoe UI", sans-serif;
-      padding: 10px 12px;
+      margin-bottom: 14px;
+      padding: 12px 14px;
       border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfcfb;
+      font: 15px/1.45 "DM Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
     }
-    textarea { min-height: 140px; resize: vertical; }
-    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-    button, .file input { font-family: "Segoe UI", sans-serif; }
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+    textarea:focus, input[type="text"]:focus {
+      outline: 2px solid rgba(15, 107, 76, 0.18);
+      border-color: #7fb89d;
+      background: white;
+    }
+    .import-foot {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .file-picker {
+      position: relative;
+      flex: 1 1 280px;
+      min-width: 220px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 14px;
+      border: 1px dashed #b7c9bf;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #fbfcfb 0%, #f4f8f6 100%);
+      cursor: pointer;
+      transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+    }
+    .file-picker:hover,
+    .file-picker:focus-within {
+      border-color: #7fb89d;
+      background: #f7fbf8;
+      box-shadow: inset 0 0 0 1px rgba(15, 107, 76, 0.08);
+    }
+    .file-picker.has-file {
+      border-style: solid;
+      border-color: #9fc4b2;
+      background: var(--accent-soft);
+    }
+    .file-picker input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+    .file-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: white;
+      border: 1px solid var(--line);
+      color: var(--accent);
+      flex: 0 0 auto;
+    }
+    .file-icon svg {
+      width: 16px;
+      height: 16px;
+      display: block;
+    }
+    .file-copy {
+      min-width: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 1px;
+    }
+    .file-copy strong {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.2;
+    }
+    .file-copy span {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 42ch;
+    }
+    button, .file-picker {
+      font-family: inherit;
+    }
     button {
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 18px;
       background: var(--ink);
       color: white;
-      border: 0;
-      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 600;
       cursor: pointer;
     }
-    button.secondary { background: white; color: var(--ink); border: 1px solid var(--line); }
-    .notice { margin: 16px 0; padding: 12px 16px; }
-    .table-wrap { overflow-x: auto; margin-top: 20px; border: 1px solid var(--line); background: var(--card); }
-    table { width: 100%; border-collapse: collapse; border: 0; min-width: 1280px; }
-    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; white-space: nowrap; }
-    th { font-family: "Segoe UI", sans-serif; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
-    td { font-family: "Segoe UI", sans-serif; font-size: 14px; }
-    td.clean { white-space: normal; max-width: 460px; font-size: 13px; line-height: 1.45; }
-    td.actions form { display: inline; padding: 0; border: 0; background: transparent; }
-    .more { color: var(--muted); font-size: 12px; }
-    .hint { color: var(--muted); font-size: 13px; font-family: "Segoe UI", sans-serif; }
-    .status {
-      display: inline-block;
+    button:hover { filter: brightness(1.08); }
+    button.secondary {
+      background: white;
+      color: var(--ink);
       border: 1px solid var(--line);
-      padding: 2px 8px;
-      font-size: 12px;
     }
-    .empty { padding: 24px; color: var(--muted); }
-    .blank { color: #a8a29e; }
-    .roles { font-family: "Segoe UI", sans-serif; font-size: 14px; }
+    button.ghost {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    button.import-btn {
+      flex: 0 0 auto;
+      min-width: 128px;
+      height: 52px;
+      padding: 0 24px;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+    .toast-stack {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: min(360px, calc(100vw - 32px));
+      pointer-events: none;
+    }
+    .toast {
+      pointer-events: auto;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 14px 14px 16px;
+      border-radius: 16px;
+      border: 1px solid #b7d8c6;
+      background: #ffffff;
+      box-shadow: 0 16px 40px rgba(20, 32, 27, 0.14);
+      color: var(--ink);
+      transform: translateY(-12px);
+      opacity: 0;
+      animation: toast-in 220ms ease forwards;
+    }
+    .toast.hide {
+      animation: toast-out 180ms ease forwards;
+    }
+    .toast-dot {
+      width: 10px;
+      height: 10px;
+      margin-top: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex: 0 0 auto;
+    }
+    .toast-body {
+      flex: 1;
+      min-width: 0;
+    }
+    .toast-title {
+      margin: 0 0 2px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .toast-text {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+    .toast-close {
+      border: 0;
+      background: transparent;
+      color: var(--soft);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 2px;
+    }
+    @keyframes toast-in {
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes toast-out {
+      to { transform: translateY(-8px); opacity: 0; }
+    }
+    .list-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 12px;
+      margin: 28px 0 14px;
+      flex-wrap: wrap;
+    }
+    .list-head h2 {
+      margin: 0;
+      font-size: 22px;
+      font-family: "Instrument Serif", Georgia, serif;
+      font-weight: 400;
+    }
+    .count {
+      color: var(--soft);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .pager {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 8px 0 28px;
+      padding: 14px 16px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+    .pager-meta {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .pager-nav {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .pager-nav a,
+    .pager-nav span.page-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 36px;
+      height: 36px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: white;
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .pager-nav a:hover { border-color: #9fc4b2; }
+    .pager-nav span.page-num.current {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: white;
+    }
+    .pager-nav span.page-num.disabled,
+    .pager-nav a.disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+    .site-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      padding: 18px 18px 16px;
+      margin-bottom: 14px;
+      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+      animation: rise 560ms ease both;
+    }
+    .site-card:hover {
+      transform: translateY(-2px);
+      border-color: #c5d5cc;
+      box-shadow: 0 16px 36px rgba(20, 32, 27, 0.09);
+    }
+    .site-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #eef2f0;
+    }
+    .site-id {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+      color: var(--soft);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .site-url {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      word-break: break-all;
+      letter-spacing: -0.01em;
+    }
+    .site-url a {
+      color: inherit;
+      text-decoration: none;
+    }
+    .site-url a:hover { color: var(--accent); }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: lowercase;
+      background: #eef1ef;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .status::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.9;
+    }
+    .status.ok { background: var(--ok-soft); color: var(--ok); }
+    .status.bad { background: var(--danger-soft); color: var(--danger); }
+    .status.warn { background: var(--warn-soft); color: var(--warn); }
+    .status.busy { background: #e8eefc; color: #1d4ed8; }
+    .confidence {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .confidence-bar {
+      flex: 1;
+      height: 6px;
+      border-radius: 999px;
+      background: #e7eeeA;
+      overflow: hidden;
+      min-width: 72px;
+    }
+    .confidence-bar > i {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #1c8a63, #0f6b4c);
+    }
+    .confidence-bar.mid > i { background: linear-gradient(90deg, #d97706, #b45309); }
+    .confidence-bar.low > i { background: linear-gradient(90deg, #e11d48, #9f1239); }
+    .meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 820px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .block {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fbfcfb;
+      padding: 12px 14px;
+      min-height: 100%;
+    }
+    .block h3 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--soft);
+    }
+    .preview {
+      margin: 0;
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.55;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 4;
+      overflow: hidden;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .preview.empty, .chip.empty, .field.empty {
+      color: var(--soft);
+      font-style: italic;
+    }
+    .preview-foot {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .chars {
+      color: var(--soft);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    details.full {
+      margin-top: 8px;
+    }
+    details.full summary {
+      cursor: pointer;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 600;
+      list-style: none;
+    }
+    details.full summary::-webkit-details-marker { display: none; }
+    details.full[open] summary { margin-bottom: 8px; }
+    .full-text {
+      max-height: 220px;
+      overflow: auto;
+      margin: 0;
+      padding: 12px;
+      border-radius: 12px;
+      background: white;
+      border: 1px solid var(--line);
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--muted);
+    }
+    .fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 12px;
+    }
+    .field {
+      min-width: 0;
+    }
+    .field span {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--soft);
+      font-weight: 700;
+    }
+    .field strong {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.4;
+      color: var(--ink);
+      white-space: normal;
+      word-break: break-word;
+    }
+    .field.wide { grid-column: 1 / -1; }
+    .field.wide strong {
+      -webkit-line-clamp: 3;
+    }
+    .field details.value-more {
+      margin-top: 4px;
+    }
+    .field details.value-more summary {
+      cursor: pointer;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      list-style: none;
+      width: fit-content;
+    }
+    .field details.value-more summary::-webkit-details-marker { display: none; }
+    .field details.value-more[open] summary { margin-bottom: 4px; }
+    .field .value-full {
+      margin: 0;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: white;
+      border: 1px solid var(--line);
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--ink);
+      word-break: break-word;
+      white-space: normal;
+    }
+    .card-foot {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 12px;
+    }
+    .empty-state {
+      padding: 48px 24px;
+      text-align: center;
+      color: var(--muted);
+      border: 1px dashed var(--line);
+      border-radius: 20px;
+      background: rgba(255,255,255,0.7);
+      box-shadow: var(--shadow);
+    }
+    .empty-state strong {
+      display: block;
+      color: var(--ink);
+      font-size: 18px;
+      margin-bottom: 6px;
+    }
+    .card-foot button.secondary:hover {
+      border-color: #9fc4b2;
+      background: #f7fbf8;
+    }
   </style>
 </head>
 <body>
   <main>
-    <p class="step">Step 1 of 6</p>
-    <h1>Save the URL list</h1>
-    <p>
-      Paste website addresses, or upload a CSV. Each company is one row. The new columns
-      are empty until the other two members fill them.
-    </p>
-    <p class="roles">
-      Member 1 fills <strong>Clean text</strong>.
-      Member 2 fills <strong>Company name</strong>, <strong>Description</strong>,
-      <strong>Business type</strong>, <strong>Industry</strong>, <strong>Niche</strong>,
-      <strong>Products</strong>, <strong>Services</strong>, <strong>Confidence</strong>,
-      and <strong>Evidence</strong>.
-    </p>
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="8"></circle>
+            <path d="M3 12h18"></path>
+            <path d="M12 4a14 14 0 0 1 0 16"></path>
+            <path d="M12 4a14 14 0 0 0 0 16"></path>
+          </svg>
+        </div>
+        <div class="brand-copy">
+          <strong>Website Intelligence</strong>
+          <span>Crawl · Classify · Export-ready business records</span>
+        </div>
+      </div>
+      <span class="topbar-pill"><i></i> Demo ready</span>
+    </div>
 
-    {% if message %}
-    <div class="notice">{{ message }}</div>
+    <header class="hero">
+      <p class="step">Internal platform</p>
+      <h1>Company URL workspace</h1>
+    </header>
+
+    {% if total %}
+    <section class="stats" aria-label="Workspace summary">
+      <div class="stat accent">
+        <em>Total</em>
+        <strong>{{ stats.total }}</strong>
+        <small>companies saved</small>
+      </div>
+      <div class="stat">
+        <em>Classified</em>
+        <strong>{{ stats.classified }}</strong>
+        <small>AI completed</small>
+      </div>
+      <div class="stat">
+        <em>Crawled</em>
+        <strong>{{ stats.crawled }}</strong>
+        <small>ready for AI</small>
+      </div>
+      <div class="stat">
+        <em>Pending</em>
+        <strong>{{ stats.pending }}</strong>
+        <small>waiting to crawl</small>
+      </div>
+      <div class="stat">
+        <em>Issues</em>
+        <strong>{{ stats.issues }}</strong>
+        <small>blocked or failed</small>
+      </div>
+    </section>
     {% endif %}
 
-    <form method="post" action="/import" enctype="multipart/form-data">
-      <label for="urls">One website per line</label>
-      <textarea id="urls" name="urls" placeholder="https://stripe.com&#10;https://openai.com"></textarea>
-      <label for="source_batch">Batch name (optional)</label>
-      <input id="source_batch" name="source_batch" type="text" placeholder="sample">
-      <div class="row">
-        <label class="file">CSV or text file
-          <input name="file" type="file" accept=".csv,.txt,text/csv,text/plain">
-        </label>
-        <button type="submit">Import</button>
-        <button class="secondary" type="submit" formaction="/import-sample">Load sample list</button>
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Import websites</h2>
+          <p class="sub">Paste one address per line, or upload a CSV. The same company is saved only once.</p>
+        </div>
+        <form method="post" action="/crawl">
+          <button class="ghost" type="submit">Crawl pending websites</button>
+        </form>
       </div>
-    </form>
+      <form method="post" action="/import" enctype="multipart/form-data">
+        <label for="urls">Website addresses</label>
+        <textarea id="urls" name="urls" placeholder="https://stripe.com&#10;https://openai.com"></textarea>
+        <div class="import-foot">
+          <label class="file-picker" id="file-picker" for="import-file">
+            <input id="import-file" name="file" type="file" accept=".csv,.txt,text/csv,text/plain">
+            <span class="file-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                <path d="M14 3v5h5"></path>
+                <path d="M9 13h6M9 17h4"></path>
+              </svg>
+            </span>
+            <span class="file-copy">
+              <strong>Choose CSV or text file</strong>
+              <span id="file-name">No file selected</span>
+            </span>
+          </label>
+          <button class="import-btn" type="submit">Import</button>
+        </div>
+      </form>
+    </section>
 
-    <form method="post" action="/crawl">
-      <div class="row">
-        <button type="submit">Crawl pending websites</button>
-        <span class="hint">Reads each site and saves cleaned pages into Clean text.</span>
-      </div>
-    </form>
-
-    {% if websites %}
-    <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Saved as</th>
-          <th>Status</th>
-          <th>Clean text</th>
-          <th>Company name</th>
-          <th>Description</th>
-          <th>Business type</th>
-          <th>Industry</th>
-          <th>Niche</th>
-          <th>Products</th>
-          <th>Services</th>
-          <th>Confidence</th>
-          <th>Evidence</th>
-          <th>Re-crawl</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for site in websites %}
-        <tr>
-          <td>{{ site.id }}</td>
-          <td>{{ site.normalized_website }}</td>
-          <td><span class="status" title="{{ site.crawl_error or '' }}">{{ site.status }}{% if site.pages_crawled %} · {{ site.pages_crawled }} page(s){% endif %}</span></td>
-          <td class="clean blank">{% if site.clean_text %}{{ site.clean_text[:200] }}{% if site.clean_text|length > 200 %}<span class="more"> … {{ site.clean_text|length }} chars</span>{% endif %}{% else %}empty{% endif %}</td>
-          <td class="blank">{{ site.company_name or "empty" }}</td>
-          <td class="blank">{{ site.description or "empty" }}</td>
-          <td class="blank">{{ site.business_type or "empty" }}</td>
-          <td class="blank">{{ site.industry or "empty" }}</td>
-          <td class="blank">{{ site.niche or "empty" }}</td>
-          <td class="blank">{{ site.products or "empty" }}</td>
-          <td class="blank">{{ site.services or "empty" }}</td>
-          <td class="blank">{{ site.confidence if site.confidence is not none else "empty" }}</td>
-          <td class="blank">{{ site.evidence or "empty" }}</td>
-          <td class="actions">
-            <form method="post" action="/crawl/{{ site.id }}">
-              <button class="secondary" type="submit">Re-crawl</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    {% if total %}
+    <div class="list-head">
+      <h2>Saved companies</h2>
+      <span class="count">{{ total }} record{% if total != 1 %}s{% endif %}</span>
     </div>
+
+    {% if total_pages > 1 %}
+    <nav class="pager" aria-label="Company pages">
+      <span class="pager-meta">Showing {{ showing_start }}–{{ showing_end }} of {{ total }}</span>
+      <div class="pager-nav">
+        {% if page > 1 %}
+        <a href="/?page={{ page - 1 }}&per_page={{ per_page }}">Previous</a>
+        {% else %}
+        <span class="page-num disabled">Previous</span>
+        {% endif %}
+
+        {% for p in range(1, total_pages + 1) %}
+          {% if p == page %}
+          <span class="page-num current" aria-current="page">{{ p }}</span>
+          {% elif p == 1 or p == total_pages or (p >= page - 1 and p <= page + 1) %}
+          <a href="/?page={{ p }}&per_page={{ per_page }}">{{ p }}</a>
+          {% elif p == page - 2 or p == page + 2 %}
+          <span class="page-num disabled">…</span>
+          {% endif %}
+        {% endfor %}
+
+        {% if page < total_pages %}
+        <a href="/?page={{ page + 1 }}&per_page={{ per_page }}">Next</a>
+        {% else %}
+        <span class="page-num disabled">Next</span>
+        {% endif %}
+      </div>
+    </nav>
+    {% endif %}
+
+    {% for site in websites %}
+    {% set status = site.status or "pending" %}
+    {% set status_class =
+      "ok" if status in ["crawled", "classified"]
+      else "bad" if status in ["failed", "unreachable", "blocked", "robots_blocked", "invalid", "classify_failed"]
+      else "warn" if status in ["empty", "needs_review"]
+      else "busy" if status == "crawling"
+      else ""
+    %}
+    <article class="site-card">
+      <div class="site-top">
+        <div>
+          <span class="site-id">#{{ site.id }}</span>
+          <p class="site-url"><a href="{{ site.normalized_website }}" target="_blank" rel="noreferrer">{{ site.normalized_website }}</a></p>
+        </div>
+        <div class="meta">
+          <span class="status {{ status_class }}" title="{{ site.crawl_error or '' }}">
+            {{ status }}{% if site.pages_crawled %} · {{ site.pages_crawled }} page{% if site.pages_crawled != 1 %}s{% endif %}{% endif %}
+          </span>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="block">
+          <h3>Clean text</h3>
+          {% if site.clean_text %}
+          <p class="preview">{{ site.clean_text|preview_clean }}</p>
+          <div class="preview-foot">
+            <span class="chars">{{ site.clean_text|length }} characters saved</span>
+          </div>
+          <details class="full">
+            <summary>View full cleaned text</summary>
+            <pre class="full-text">{{ site.clean_text }}</pre>
+          </details>
+          {% elif site.crawl_error %}
+          <p class="preview empty">Crawl could not finish{% if site.status %} ({{ site.status }}){% endif %}.</p>
+          <p class="chars" title="{{ site.crawl_error }}">{{ site.crawl_error[:120] }}{% if site.crawl_error|length > 120 %}…{% endif %}</p>
+          {% else %}
+          <p class="preview empty">Waiting for crawl</p>
+          {% endif %}
+        </div>
+
+        <div class="block">
+          <h3>Classification</h3>
+          <div class="fields">
+            <div class="field">
+              <span>Company</span>
+              {% if site.company_name %}
+              <strong title="{{ site.company_name }}">{{ site.company_name }}</strong>
+              {% else %}
+              <strong class="empty">Not classified yet</strong>
+              {% endif %}
+            </div>
+            <div class="field">
+              <span>Business type</span>
+              <strong class="{% if not site.business_type %}empty{% endif %}" {% if site.business_type %}title="{{ site.business_type }}"{% endif %}>{{ site.business_type or "—" }}</strong>
+            </div>
+            <div class="field">
+              <span>Industry</span>
+              <strong class="{% if not site.industry %}empty{% endif %}" {% if site.industry %}title="{{ site.industry }}"{% endif %}>{{ site.industry or "—" }}</strong>
+            </div>
+            <div class="field">
+              <span>Niche</span>
+              {% if site.niche %}
+              <strong title="{{ site.niche }}">{{ site.niche }}</strong>
+              {% if site.niche|length > 48 %}
+              <details class="value-more">
+                <summary>Show full niche</summary>
+                <p class="value-full">{{ site.niche }}</p>
+              </details>
+              {% endif %}
+              {% else %}
+              <strong class="empty">—</strong>
+              {% endif %}
+            </div>
+            <div class="field">
+              <span>Confidence</span>
+              {% if site.confidence is not none %}
+              <strong>{{ site.confidence }}%</strong>
+              <div class="confidence" title="{{ site.confidence }}% confidence">
+                <div class="confidence-bar {% if site.confidence < 50 %}low{% elif site.confidence < 70 %}mid{% endif %}">
+                  <i style="width: {{ site.confidence }}%;"></i>
+                </div>
+              </div>
+              {% else %}
+              <strong class="empty">—</strong>
+              {% endif %}
+            </div>
+            <div class="field wide">
+              <span>Products</span>
+              {% if site.products %}
+              <strong title="{{ site.products }}">{{ site.products }}</strong>
+              {% if site.products|length > 70 %}
+              <details class="value-more">
+                <summary>Show full products</summary>
+                <p class="value-full">{{ site.products }}</p>
+              </details>
+              {% endif %}
+              {% else %}
+              <strong class="empty">—</strong>
+              {% endif %}
+            </div>
+            <div class="field wide">
+              <span>Description</span>
+              {% if site.description %}
+              <strong title="{{ site.description }}">{{ site.description }}</strong>
+              {% if site.description|length > 90 %}
+              <details class="value-more">
+                <summary>Show full description</summary>
+                <p class="value-full">{{ site.description }}</p>
+              </details>
+              {% endif %}
+              {% else %}
+              <strong class="empty">Run the AI classifier to fill this.</strong>
+              {% endif %}
+            </div>
+            <div class="field wide">
+              <span>Services</span>
+              {% if site.services %}
+              <strong title="{{ site.services }}">{{ site.services }}</strong>
+              {% if site.services|length > 70 %}
+              <details class="value-more">
+                <summary>Show full services</summary>
+                <p class="value-full">{{ site.services }}</p>
+              </details>
+              {% endif %}
+              {% else %}
+              <strong class="empty">—</strong>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-foot">
+        <form method="post" action="/crawl/{{ site.id }}">
+          <button class="secondary" type="submit">Re-crawl</button>
+        </form>
+      </div>
+    </article>
+    {% endfor %}
+
+    {% if total_pages > 1 %}
+    <nav class="pager" aria-label="Company pages bottom">
+      <span class="pager-meta">Page {{ page }} of {{ total_pages }}</span>
+      <div class="pager-nav">
+        {% if page > 1 %}
+        <a href="/?page={{ page - 1 }}&per_page={{ per_page }}">Previous</a>
+        {% else %}
+        <span class="page-num disabled">Previous</span>
+        {% endif %}
+        {% if page < total_pages %}
+        <a href="/?page={{ page + 1 }}&per_page={{ per_page }}">Next</a>
+        {% else %}
+        <span class="page-num disabled">Next</span>
+        {% endif %}
+      </div>
+    </nav>
+    {% endif %}
+
     {% else %}
-    <div class="empty">No websites yet. Paste a few URLs, or load the sample list.</div>
+    <div class="empty-state">
+      <strong>No companies yet</strong>
+      Paste website addresses above, or upload a CSV to get started.
+    </div>
     {% endif %}
   </main>
+
+  <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    (function () {
+      const input = document.getElementById("import-file");
+      const label = document.getElementById("file-picker");
+      const name = document.getElementById("file-name");
+      if (input && label && name) {
+        input.addEventListener("change", () => {
+          const file = input.files && input.files[0];
+          if (file) {
+            name.textContent = file.name;
+            label.classList.add("has-file");
+          } else {
+            name.textContent = "No file selected";
+            label.classList.remove("has-file");
+          }
+        });
+      }
+    })();
+  </script>
+
+  {% if message %}
+  <script>
+    (function () {
+      const stack = document.getElementById("toast-stack");
+      const toast = document.createElement("div");
+      toast.className = "toast";
+      toast.setAttribute("role", "status");
+      toast.innerHTML =
+        '<span class="toast-dot" aria-hidden="true"></span>' +
+        '<div class="toast-body">' +
+          '<p class="toast-title">{{ "Crawl started" if crawl else "Import finished" }}</p>' +
+          '<p class="toast-text">{{ message|e }}</p>' +
+        "</div>" +
+        '<button class="toast-close" type="button" aria-label="Dismiss">×</button>';
+
+      const dismiss = () => {
+        toast.classList.add("hide");
+        window.setTimeout(() => toast.remove(), 180);
+      };
+
+      toast.querySelector(".toast-close").addEventListener("click", dismiss);
+      stack.appendChild(toast);
+      window.setTimeout(dismiss, 4200);
+
+      // Drop ?crawl / ?imported from the URL so a manual refresh does not show the toast again.
+      if (window.history.replaceState) {
+        const url = new URL(window.location.href);
+        ["crawl", "imported", "added", "duplicates", "invalid", "site"].forEach((key) => {
+          url.searchParams.delete(key);
+        });
+        window.history.replaceState({}, "", url.pathname + (url.search || "") + url.hash);
+      }
+
+      {% if crawl %}
+      // Refresh once so cleaned text can appear without a manual reload.
+      window.setTimeout(() => { window.location.reload(); }, 3500);
+      {% endif %}
+    })();
+  </script>
+  {% endif %}
 </body>
 </html>
