@@ -3,3 +3,6 @@ uvicorn
 sqlalchemy
 jinja2
 python-multipart
+httpx
+beautifulsoup4
+lxml
