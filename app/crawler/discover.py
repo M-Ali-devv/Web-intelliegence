@@ -19,7 +19,7 @@ MEDIUM_VALUE = (
     "industries", "markets", "sectors", "customers", "case-stud",
     "portfolio", "pricing", "partners",
 )
-LOW_VALUE = ("contact", "team", "support", "faq")
+LOW_VALUE = ("contact", "location", "team", "support", "faq")
 
 # Never worth one of our limited page slots.
 SKIP = (
@@ -68,6 +68,23 @@ def _score(path: str, anchor_text: str) -> int:
     if any(word in haystack for word in LOW_VALUE):
         return 1
     return 0
+
+
+def merge_candidates(pages: list[PageLink], extra_urls: list[str]) -> list[PageLink]:
+    """Add sitemap URLs into the ranked list. Higher score wins on a tie URL."""
+    best = {item.url: item for item in pages}
+    for raw in extra_urls:
+        url = _normalize(raw)
+        path = urlparse(url).path or "/"
+        if path in ("", "/"):
+            continue
+        score = _score(path, "")
+        if score == 0:
+            continue
+        existing = best.get(url)
+        if existing is None or score > existing.score:
+            best[url] = PageLink(url=url, label=path, score=score)
+    return sorted(best.values(), key=lambda link: (-link.score, link.url))
 
 
 def discover_pages(html: bytes, base_url: str) -> list[PageLink]:

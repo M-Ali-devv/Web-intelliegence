@@ -11,15 +11,19 @@ from __future__ import annotations
 import asyncio
 import re
 from dataclasses import dataclass
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 import httpx
 
 from app.crawler import config
-from app.crawler.discover import discover_pages
+from app.crawler.browser import render_page
+from app.crawler.discover import discover_pages, merge_candidates
 from app.crawler.extract import extract_page
-from app.crawler.fetcher import FetchError, RobotsRules, fetch_page, load_robots
+from app.crawler.fetcher import FetchError, FetchResult, RobotsRules, fetch_page, load_robots
 from app.crawler.guard import GuardError
+from app.crawler.quality import looks_like_shell, page_is_useful
+from app.crawler.sitemap import sitemap_urls
+from app.crawler.structured import structured_lines
 
 _STATUS_BY_ERROR = {
     "network": config.STATUS_UNREACHABLE,
@@ -73,6 +77,28 @@ async def _fetch_homepage(client: httpx.AsyncClient, robots: RobotsRules, normal
     raise last if last else FetchError("network", normalized_url)
 
 
+def _with_structure(html: bytes, text: str) -> str:
+    extra = [line for line in structured_lines(html) if line.lower() not in text.lower()]
+    if not extra:
+        return text
+    block = "\n".join(extra)
+    return f"{text}\n{block}" if text else block
+
+
+async def _maybe_render(fetched: FetchResult, title: str, text: str) -> tuple[bytes, str, str, str]:
+    """Use the browser only when HTTP returned a shell with too little text."""
+    html = fetched.content
+    if page_is_useful(text) or not looks_like_shell(text, html):
+        return html, title, text, "http"
+    rendered = await render_page(fetched.final_url)
+    if not rendered:
+        return html, title, text, "http"
+    rendered_title, rendered_text = extract_page(rendered, fetched.final_url)
+    if len(rendered_text) <= len(text):
+        return html, title, text, "http"
+    return rendered, rendered_title, rendered_text, "browser"
+
+
 async def crawl_one(
     client: httpx.AsyncClient,
     normalized_url: str,
@@ -94,7 +120,7 @@ async def crawl_one(
     pages: list[tuple[str, str, str]] = []  # (label, final_url, text)
     seen_lines: set[str] = set()
 
-    def _absorb(label: str, url: str, title: str, text: str) -> int:
+    def _absorb(label: str, url: str, title: str, text: str, method: str) -> int:
         kept = []
         for line in text.splitlines():
             key = line.lower()
@@ -103,26 +129,47 @@ async def crawl_one(
             seen_lines.add(key)
             kept.append(line)
         body = "\n".join(kept)
-        if body:
-            pages.append((label, url, (f"{title}\n{body}" if title else body)))
+        if not body:
+            return 0
+        note = f"Retrieved via {method}: {url}"
+        pages.append((label, url, f"{title}\n{note}\n{body}" if title else f"{note}\n{body}"))
         return len(body)
 
-    title, home_text = extract_page(homepage.content, homepage.final_url)
-    total = _absorb("homepage", homepage.final_url, title, home_text)
+    home_title, home_text = extract_page(homepage.content, homepage.final_url)
+    home_html, home_title, home_text, home_method = await _maybe_render(homepage, home_title, home_text)
+    home_text = _with_structure(home_html, home_text)
+    total = _absorb("homepage", homepage.final_url, home_title, home_text, home_method)
 
+    delay = config.DOMAIN_DELAY
+    strikes = 0
     # Fill the remaining page budget with the best business pages.
-    if len(pages) < config.MAX_PAGES:
-        candidates = discover_pages(homepage.content, homepage.final_url)
+    if len(pages) < config.MAX_PAGES and total < config.SUFFICIENT_TEXT_CHARS:
+        parsed = urlparse(homepage.final_url)
+        origin = urlunparse((parsed.scheme, parsed.netloc, "", "", "", ""))
+        host = (parsed.hostname or "").lower().removeprefix("www.")
+        extra = await sitemap_urls(client, robots, origin, host)
+        candidates = merge_candidates(discover_pages(home_html, homepage.final_url), extra)
         for link in candidates[: config.MAX_PAGES - 1]:
+            if len(pages) >= config.MAX_PAGES or total >= config.SUFFICIENT_TEXT_CHARS:
+                break
+            if strikes >= config.BLOCK_STRIKES:
+                break
             if not robots.allowed(link.url):
                 continue
             try:
                 result = await fetch_page(client, link.url)
-            except (FetchError, GuardError):
+            except GuardError:
+                continue
+            except FetchError as exc:
+                if exc.kind == "blocked":
+                    strikes += 1
+                    delay = min(delay * 2, config.DOMAIN_DELAY_MAX)
                 continue  # one bad page must not sink the site
             page_title, page_text = extract_page(result.content, result.final_url)
-            total += _absorb(_page_label(result.final_url), result.final_url, page_title, page_text)
-            await asyncio.sleep(0.2)  # stay polite inside a single domain
+            page_html, page_title, page_text, method = await _maybe_render(result, page_title, page_text)
+            page_text = _with_structure(page_html, page_text)
+            total += _absorb(_page_label(result.final_url), result.final_url, page_title, page_text, method)
+            await asyncio.sleep(delay)
             if total >= config.MAX_TEXT_CHARS:
                 break
 
