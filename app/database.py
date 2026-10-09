@@ -37,17 +37,38 @@ EXTRA_COLUMNS = {
     "confidence": "INTEGER",
     "evidence": "TEXT",
     "classification_meta": "TEXT",
+    "claimed_at": "DATETIME",
 }
+
+JOB_EXTRA_COLUMNS = {
+    "note": "TEXT",
+}
+
+INDEX_STATEMENTS = (
+    "CREATE INDEX IF NOT EXISTS ix_websites_status ON websites (status)",
+    "CREATE INDEX IF NOT EXISTS ix_websites_industry ON websites (industry)",
+    "CREATE INDEX IF NOT EXISTS ix_websites_business_type ON websites (business_type)",
+    "CREATE INDEX IF NOT EXISTS ix_websites_confidence ON websites (confidence)",
+    "CREATE INDEX IF NOT EXISTS ix_jobs_status ON jobs (status)",
+    "CREATE INDEX IF NOT EXISTS ix_jobs_kind ON jobs (kind)",
+)
+
+
+def _add_missing(connection, table: str, columns: dict[str, str]) -> None:
+    existing = {column["name"] for column in inspect(engine).get_columns(table)}
+    for name, column_type in columns.items():
+        if name not in existing:
+            connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {column_type}"))
 
 
 def init_db() -> None:
     DATA_DIR.mkdir(exist_ok=True)
     Base.metadata.create_all(engine)
-    existing = {column["name"] for column in inspect(engine).get_columns("websites")}
     with engine.begin() as connection:
-        for name, column_type in EXTRA_COLUMNS.items():
-            if name not in existing:
-                connection.execute(text(f"ALTER TABLE websites ADD COLUMN {name} {column_type}"))
+        _add_missing(connection, "websites", EXTRA_COLUMNS)
+        _add_missing(connection, "jobs", JOB_EXTRA_COLUMNS)
+        for statement in INDEX_STATEMENTS:
+            connection.execute(text(statement))
 
 
 def get_session() -> Session:
