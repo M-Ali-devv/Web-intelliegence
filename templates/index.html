@@ -727,7 +727,61 @@
     .card-foot {
       display: flex;
       justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px;
       margin-top: 12px;
+    }
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .filters label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--soft);
+    }
+    .filters input,
+    .filters select {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: white;
+      color: var(--ink);
+      font: inherit;
+      font-size: 14px;
+      padding: 8px 10px;
+      min-width: 140px;
+    }
+    .exports {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .exports a {
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: white;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .evidence {
+      margin: 8px 0 0;
+      padding-left: 18px;
+    }
+    .evidence li {
+      margin: 0 0 8px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .evidence p {
+      margin: 2px 0 0;
     }
     .empty-state {
       padding: 48px 24px;
@@ -775,7 +829,7 @@
       <h1>Company URL workspace</h1>
     </header>
 
-    {% if total %}
+    {% if saved_total %}
     <section class="stats" aria-label="Workspace summary">
       <div class="stat accent">
         <em>Total</em>
@@ -838,6 +892,58 @@
       </form>
     </section>
 
+    {% if saved_total %}
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Find companies</h2>
+          <p class="sub">Search the saved records, open the review queue, or download the current filter.</p>
+        </div>
+        <div class="exports">
+          <a href="/export.csv{% if filter_query %}?{{ filter_query }}{% endif %}">CSV</a>
+          <a href="/export.xlsx{% if filter_query %}?{{ filter_query }}{% endif %}">Excel</a>
+          <a href="/export.json{% if filter_query %}?{{ filter_query }}{% endif %}">JSON</a>
+        </div>
+      </div>
+      <form class="filters" method="get" action="/">
+        <label>Search
+          <input name="q" value="{{ filters.q }}" placeholder="Name or website">
+        </label>
+        <label>Industry
+          <select name="industry">
+            <option value="">Any</option>
+            {% for name in industries %}
+            <option value="{{ name }}" {% if filters.industry == name %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Business type
+          <select name="business_type">
+            <option value="">Any</option>
+            {% for name in business_types %}
+            <option value="{{ name }}" {% if filters.business_type == name %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Status
+          <select name="status">
+            <option value="">Any</option>
+            <option value="review" {% if filters.status == "review" %}selected{% endif %}>Needs review</option>
+            <option value="classified" {% if filters.status == "classified" %}selected{% endif %}>Classified</option>
+            <option value="crawled" {% if filters.status == "crawled" %}selected{% endif %}>Crawled</option>
+            <option value="pending" {% if filters.status == "pending" %}selected{% endif %}>Pending</option>
+            <option value="insufficient_evidence" {% if filters.status == "insufficient_evidence" %}selected{% endif %}>Insufficient evidence</option>
+            <option value="classify_failed" {% if filters.status == "classify_failed" %}selected{% endif %}>Classify failed</option>
+          </select>
+        </label>
+        <label>Min confidence
+          <input name="min_confidence" type="number" min="0" max="100" value="{{ filters.min_confidence }}" placeholder="0–100">
+        </label>
+        <button type="submit">Apply</button>
+      </form>
+    </section>
+    {% endif %}
+
     {% if total %}
     <div class="list-head">
       <h2>Saved companies</h2>
@@ -849,7 +955,7 @@
       <span class="pager-meta">Showing {{ showing_start }}–{{ showing_end }} of {{ total }}</span>
       <div class="pager-nav">
         {% if page > 1 %}
-        <a href="/?page={{ page - 1 }}&per_page={{ per_page }}">Previous</a>
+        <a href="/?page={{ page - 1 }}&per_page={{ per_page }}{% if filter_query %}&{{ filter_query }}{% endif %}">Previous</a>
         {% else %}
         <span class="page-num disabled">Previous</span>
         {% endif %}
@@ -858,14 +964,14 @@
           {% if p == page %}
           <span class="page-num current" aria-current="page">{{ p }}</span>
           {% elif p == 1 or p == total_pages or (p >= page - 1 and p <= page + 1) %}
-          <a href="/?page={{ p }}&per_page={{ per_page }}">{{ p }}</a>
+          <a href="/?page={{ p }}&per_page={{ per_page }}{% if filter_query %}&{{ filter_query }}{% endif %}">{{ p }}</a>
           {% elif p == page - 2 or p == page + 2 %}
           <span class="page-num disabled">…</span>
           {% endif %}
         {% endfor %}
 
         {% if page < total_pages %}
-        <a href="/?page={{ page + 1 }}&per_page={{ per_page }}">Next</a>
+        <a href="/?page={{ page + 1 }}&per_page={{ per_page }}{% if filter_query %}&{{ filter_query }}{% endif %}">Next</a>
         {% else %}
         <span class="page-num disabled">Next</span>
         {% endif %}
@@ -912,6 +1018,19 @@
           <p class="chars" title="{{ site.crawl_error }}">{{ site.crawl_error[:120] }}{% if site.crawl_error|length > 120 %}…{% endif %}</p>
           {% else %}
           <p class="preview empty">Waiting for crawl</p>
+          {% endif %}
+          {% if site.evidence_items %}
+          <details class="full">
+            <summary>Evidence ({{ site.evidence_items|length }})</summary>
+            <ul class="evidence">
+              {% for item in site.evidence_items %}
+              <li>
+                <strong>{{ item.field or "quote" }}</strong>{% if item.page %} · {{ item.page }}{% endif %}
+                <p>“{{ item.quote }}”</p>
+              </li>
+              {% endfor %}
+            </ul>
+          </details>
           {% endif %}
         </div>
 
@@ -1008,6 +1127,21 @@
       </div>
 
       <div class="card-foot">
+        {% if site.clean_text %}
+        <form method="post" action="/classify/{{ site.id }}">
+          <button class="secondary" type="submit">Retry classification</button>
+        </form>
+        {% endif %}
+        {% if status == "needs_review" %}
+        <form method="post" action="/review/{{ site.id }}">
+          <input type="hidden" name="decision" value="accept">
+          <button class="secondary" type="submit">Accept</button>
+        </form>
+        <form method="post" action="/review/{{ site.id }}">
+          <input type="hidden" name="decision" value="reject">
+          <button class="secondary" type="submit">Not enough evidence</button>
+        </form>
+        {% endif %}
         <form method="post" action="/crawl/{{ site.id }}">
           <button class="secondary" type="submit">Re-crawl</button>
         </form>
@@ -1020,12 +1154,12 @@
       <span class="pager-meta">Page {{ page }} of {{ total_pages }}</span>
       <div class="pager-nav">
         {% if page > 1 %}
-        <a href="/?page={{ page - 1 }}&per_page={{ per_page }}">Previous</a>
+        <a href="/?page={{ page - 1 }}&per_page={{ per_page }}{% if filter_query %}&{{ filter_query }}{% endif %}">Previous</a>
         {% else %}
         <span class="page-num disabled">Previous</span>
         {% endif %}
         {% if page < total_pages %}
-        <a href="/?page={{ page + 1 }}&per_page={{ per_page }}">Next</a>
+        <a href="/?page={{ page + 1 }}&per_page={{ per_page }}{% if filter_query %}&{{ filter_query }}{% endif %}">Next</a>
         {% else %}
         <span class="page-num disabled">Next</span>
         {% endif %}
@@ -1033,6 +1167,11 @@
     </nav>
     {% endif %}
 
+    {% elif saved_total %}
+    <div class="empty-state">
+      <strong>No companies match</strong>
+      Try a different search or clear the filters.
+    </div>
     {% else %}
     <div class="empty-state">
       <strong>No companies yet</strong>
@@ -1073,7 +1212,7 @@
       toast.innerHTML =
         '<span class="toast-dot" aria-hidden="true"></span>' +
         '<div class="toast-body">' +
-          '<p class="toast-title">{{ "Crawl started" if crawl else "Import finished" }}</p>' +
+          '<p class="toast-title">{% if crawl %}Crawl started{% elif review %}Review saved{% else %}Import finished{% endif %}</p>' +
           '<p class="toast-text">{{ message|e }}</p>' +
         "</div>" +
         '<button class="toast-close" type="button" aria-label="Dismiss">×</button>';
@@ -1090,7 +1229,7 @@
       // Drop ?crawl / ?imported from the URL so a manual refresh does not show the toast again.
       if (window.history.replaceState) {
         const url = new URL(window.location.href);
-        ["crawl", "imported", "added", "duplicates", "invalid", "site"].forEach((key) => {
+        ["crawl", "imported", "added", "duplicates", "invalid", "site", "review"].forEach((key) => {
           url.searchParams.delete(key);
         });
         window.history.replaceState({}, "", url.pathname + (url.search || "") + url.hash);

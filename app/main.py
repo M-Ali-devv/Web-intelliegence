@@ -5,18 +5,24 @@ Run from the project folder:
     uvicorn app.main:app --reload
 """
 
+import json
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlencode
 
-from fastapi import BackgroundTasks, FastAPI, File, Form, Query, Request, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 
+from app.classifier import classify_site
 from app.crawler.runner import run as run_crawl
 from app.database import get_session, init_db
+from app.exporters import iter_csv, iter_json, iter_xlsx
 from app.importer import excel_to_text, import_urls
 from app.models import Website
+from app.records import evidence_of, filtered_select, meta_of
+from app.taxonomy import BUSINESS_TYPES, INDUSTRIES
 
 ROOT = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(ROOT / "templates"))
@@ -52,6 +58,19 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="Website Intelligence — Step 1", lifespan=lifespan)
 
 
+def _confidence_floor(value: str | None) -> int | None:
+    """Blank form fields arrive as \"\". Treat that as no minimum."""
+    if value is None or not str(value).strip():
+        return None
+    try:
+        number = int(value)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="min_confidence must be a whole number from 0 to 100")
+    if number < 0 or number > 100:
+        raise HTTPException(status_code=422, detail="min_confidence must be a whole number from 0 to 100")
+    return number
+
+
 def _message(added: int, duplicates: int, invalid: int) -> str:
     return (
         f"Added {added}. "
@@ -68,11 +87,19 @@ def home(
     invalid: int = 0,
     imported: int = 0,
     crawl: int = 0,
+    review: int = 0,
+    q: str = "",
+    industry: str = "",
+    business_type: str = "",
+    status: str = "",
+    min_confidence: str | None = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
 ):
+    confidence_floor = _confidence_floor(min_confidence)
+    listing = filtered_select(q, industry, business_type, status, confidence_floor)
     with get_session() as session:
-        total = session.scalar(select(func.count()).select_from(Website)) or 0
+        saved_total = session.scalar(select(func.count()).select_from(Website)) or 0
         classified = session.scalar(
             select(func.count()).select_from(Website).where(
                 Website.status.in_(("classified", "needs_review"))
@@ -93,21 +120,33 @@ def home(
                 )
             )
         ) or 0
+        total = session.scalar(select(func.count()).select_from(listing.subquery())) or 0
         total_pages = max(1, (total + per_page - 1) // per_page) if total else 1
         page = min(page, total_pages)
         offset = (page - 1) * per_page
-        websites = session.scalars(
-            select(Website).order_by(Website.id.asc()).offset(offset).limit(per_page)
-        ).all()
+        websites = session.scalars(listing.offset(offset).limit(per_page)).all()
+        for site in websites:
+            site.evidence_items = evidence_of(site)
+            site.review_decision = meta_of(site).get("review_decision") or ""
         session.expunge_all()
 
     if imported:
         message = _message(added, duplicates, invalid)
     elif crawl:
         message = "Crawl started. Updating results shortly…"
+    elif review:
+        message = "Review saved."
     else:
         message = None
 
+    filters = {
+        "q": q.strip(),
+        "industry": industry,
+        "business_type": business_type,
+        "status": status,
+        "min_confidence": "" if confidence_floor is None else str(confidence_floor),
+    }
+    filter_query = urlencode({key: value for key, value in filters.items() if value})
     start = offset + 1 if total else 0
     end = min(offset + len(websites), total)
     return templates.TemplateResponse(
@@ -120,11 +159,16 @@ def home(
             "page": page,
             "per_page": per_page,
             "total": total,
+            "saved_total": saved_total,
             "total_pages": total_pages,
             "showing_start": start,
             "showing_end": end,
+            "filters": filters,
+            "filter_query": filter_query,
+            "industries": INDUSTRIES,
+            "business_types": BUSINESS_TYPES,
             "stats": {
-                "total": total,
+                "total": saved_total,
                 "classified": classified,
                 "crawled": crawled,
                 "pending": pending,
@@ -181,3 +225,104 @@ async def crawl_one_site(background: BackgroundTasks, site_id: int):
     """Re-crawl a single row no matter what status it has."""
     background.add_task(_crawl_background, None, [site_id], True)
     return RedirectResponse(f"/?crawl=1&site={site_id}", status_code=303)
+
+
+def _classify_one(site_id: int) -> None:
+    with get_session() as session:
+        site = session.get(Website, site_id)
+        if site is None or not site.clean_text:
+            return
+        try:
+            classify_site(site)
+        except RuntimeError:
+            site.status = "classify_failed"
+        session.commit()
+
+
+@app.post("/classify/{site_id}")
+async def classify_one_site(background: BackgroundTasks, site_id: int):
+    """Run classification again for one crawled website."""
+    background.add_task(_classify_one, site_id)
+    return RedirectResponse(f"/?crawl=1&site={site_id}", status_code=303)
+
+
+@app.post("/review/{site_id}")
+def review_site(site_id: int, decision: str = Form(...)):
+    """Accept a low-confidence profile, or mark it as not enough evidence."""
+    with get_session() as session:
+        site = session.get(Website, site_id)
+        if site is None:
+            return RedirectResponse("/", status_code=303)
+        try:
+            meta = json.loads(site.classification_meta or "{}")
+        except json.JSONDecodeError:
+            meta = {}
+        if not isinstance(meta, dict):
+            meta = {}
+        if decision == "accept":
+            site.status = "classified"
+            meta["review_decision"] = "accepted"
+        elif decision == "reject":
+            site.status = "insufficient_evidence"
+            meta["review_decision"] = "rejected"
+        site.classification_meta = json.dumps(meta, ensure_ascii=False)
+        session.commit()
+    return RedirectResponse("/?review=1&status=review", status_code=303)
+
+
+def _export_stmt(
+    q: str,
+    industry: str,
+    business_type: str,
+    status: str,
+    min_confidence: int | None,
+):
+    return filtered_select(q, industry, business_type, status, min_confidence)
+
+
+@app.get("/export.csv")
+def export_csv(
+    q: str = "",
+    industry: str = "",
+    business_type: str = "",
+    status: str = "",
+    min_confidence: str | None = Query(None),
+):
+    stmt = _export_stmt(q, industry, business_type, status, _confidence_floor(min_confidence))
+    return StreamingResponse(
+        iter_csv(stmt),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=companies.csv"},
+    )
+
+
+@app.get("/export.json")
+def export_json(
+    q: str = "",
+    industry: str = "",
+    business_type: str = "",
+    status: str = "",
+    min_confidence: str | None = Query(None),
+):
+    stmt = _export_stmt(q, industry, business_type, status, _confidence_floor(min_confidence))
+    return StreamingResponse(
+        iter_json(stmt),
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=companies.json"},
+    )
+
+
+@app.get("/export.xlsx")
+def export_xlsx(
+    q: str = "",
+    industry: str = "",
+    business_type: str = "",
+    status: str = "",
+    min_confidence: str | None = Query(None),
+):
+    stmt = _export_stmt(q, industry, business_type, status, _confidence_floor(min_confidence))
+    return StreamingResponse(
+        iter_xlsx(stmt),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=companies.xlsx"},
+    )

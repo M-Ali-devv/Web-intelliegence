@@ -29,9 +29,9 @@ def rows() -> list[Website]:
 def test_home_renders_empty_state_with_buttons(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert "Save the URL list" in response.text
+    assert "Import websites" in response.text
     assert "Crawl pending websites" in response.text
-    assert "No websites yet" in response.text
+    assert "No companies yet" in response.text
 
 
 def test_home_shows_rows_preview_and_error_tooltip(make_website, client):
@@ -44,7 +44,7 @@ def test_home_shows_rows_preview_and_error_tooltip(make_website, client):
     assert "https://shown.test" in response.text
     assert "crawled" in response.text
     assert "CLEAN BODY TEXT" in response.text            # 200-char preview
-    assert f"… {len('CLEAN BODY TEXT ' * 30)} chars" in response.text
+    assert f"{len('CLEAN BODY TEXT ' * 30)} characters saved" in response.text
     assert f'action="/crawl/{site_id}"' in response.text  # per-row re-crawl
     assert "empty" in response.text                       # NULL clean_text row
 
@@ -106,7 +106,8 @@ def test_crawl_button_starts_runner_with_limit(monkeypatch, client):
 
     response = client.post("/crawl", data={"limit": "5"}, follow_redirects=True)
 
-    assert "Crawl run started in the background" in response.text
+    assert "Crawl started" in response.text
+    assert "Updating results shortly" in response.text
     assert captured == {"limit": 5, "site_ids": None, "force": False}
 
 
