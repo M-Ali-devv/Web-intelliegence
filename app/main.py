@@ -21,10 +21,10 @@ from app.database import get_session, init_db
 from app.exporters import iter_csv, iter_json, iter_xlsx
 from app.importer import excel_to_text, import_urls
 from app.limits import max_import_chars, max_upload_bytes
-from app.models import Website
+from app.models import Job, Website
 from app.observe import log_event
 from app.records import evidence_of, filtered_select, meta_of
-from app.recovery import recover_abandoned
+from app.recovery import recover_abandoned, utcnow
 from app.security import SecurityHeadersMiddleware
 from app.taxonomy import BUSINESS_TYPES, INDUSTRIES
 
@@ -113,12 +113,16 @@ def home(
     industry: str = "",
     business_type: str = "",
     status: str = "",
+    business_model: str = "",
+    geography: str = "",
     min_confidence: str | None = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
 ):
     confidence_floor = _confidence_floor(min_confidence)
-    listing = filtered_select(q, industry, business_type, status, confidence_floor)
+    listing = filtered_select(
+        q, industry, business_type, status, confidence_floor, business_model, geography
+    )
     with get_session() as session:
         saved_total = session.scalar(select(func.count()).select_from(Website)) or 0
         classified = session.scalar(
@@ -151,7 +155,9 @@ def home(
             site.review_decision = meta_of(site).get("review_decision") or ""
         session.expunge_all()
 
-    if notice == "upload":
+    if notice == "cancelled":
+        message = "The running job was cancelled. Rows still in progress return to the queue."
+    elif notice == "upload":
         message = (
             f"That file is larger than the upload limit ({max_upload_bytes():,} bytes), "
             "so it was not imported."
@@ -170,6 +176,8 @@ def home(
         "industry": industry,
         "business_type": business_type,
         "status": status,
+        "business_model": business_model.strip(),
+        "geography": geography.strip(),
         "min_confidence": "" if confidence_floor is None else str(confidence_floor),
     }
     filter_query = urlencode({key: value for key, value in filters.items() if value})
@@ -182,7 +190,8 @@ def home(
             "websites": websites,
             "message": message,
             "crawl": bool(crawl),
-            "stopped": notice == "upload",
+            "stopped": notice in {"upload", "cancelled"},
+            "stopped_title": "Job cancelled" if notice == "cancelled" else "Import stopped",
             "page": page,
             "per_page": per_page,
             "total": total,
@@ -294,9 +303,11 @@ def review_site(site_id: int, decision: str = Form(...)):
             meta = {}
         if decision == "accept":
             site.status = "classified"
+            site.classification_status = "classified"
             meta["review_decision"] = "accepted"
         elif decision == "reject":
             site.status = "insufficient_evidence"
+            site.classification_status = "insufficient_evidence"
             meta["review_decision"] = "rejected"
         site.classification_meta = json.dumps(meta, ensure_ascii=False)
         session.commit()
@@ -309,8 +320,27 @@ def _export_stmt(
     business_type: str,
     status: str,
     min_confidence: int | None,
+    business_model: str = "",
+    geography: str = "",
 ):
-    return filtered_select(q, industry, business_type, status, min_confidence)
+    return filtered_select(
+        q, industry, business_type, status, min_confidence, business_model, geography
+    )
+
+
+@app.post("/jobs/{job_id}/cancel")
+def cancel_job(job_id: int):
+    """Mark a running crawl or classify job cancelled. The worker stops at the next site."""
+    with get_session() as session:
+        job = session.get(Job, job_id)
+        if job is None or job.status != "running":
+            return RedirectResponse("/", status_code=303)
+        job.status = "cancelled"
+        job.finished_at = utcnow()
+        job.note = "Cancelled by an operator."
+        session.commit()
+    log_event("job_cancelled", job_id=job_id)
+    return RedirectResponse("/?notice=cancelled", status_code=303)
 
 
 @app.get("/export.csv")
@@ -319,9 +349,13 @@ def export_csv(
     industry: str = "",
     business_type: str = "",
     status: str = "",
+    business_model: str = "",
+    geography: str = "",
     min_confidence: str | None = Query(None),
 ):
-    stmt = _export_stmt(q, industry, business_type, status, _confidence_floor(min_confidence))
+    stmt = _export_stmt(
+        q, industry, business_type, status, _confidence_floor(min_confidence), business_model, geography
+    )
     return StreamingResponse(
         iter_csv(stmt),
         media_type="text/csv",
@@ -335,9 +369,13 @@ def export_json(
     industry: str = "",
     business_type: str = "",
     status: str = "",
+    business_model: str = "",
+    geography: str = "",
     min_confidence: str | None = Query(None),
 ):
-    stmt = _export_stmt(q, industry, business_type, status, _confidence_floor(min_confidence))
+    stmt = _export_stmt(
+        q, industry, business_type, status, _confidence_floor(min_confidence), business_model, geography
+    )
     return StreamingResponse(
         iter_json(stmt),
         media_type="application/json",
@@ -351,9 +389,13 @@ def export_xlsx(
     industry: str = "",
     business_type: str = "",
     status: str = "",
+    business_model: str = "",
+    geography: str = "",
     min_confidence: str | None = Query(None),
 ):
-    stmt = _export_stmt(q, industry, business_type, status, _confidence_floor(min_confidence))
+    stmt = _export_stmt(
+        q, industry, business_type, status, _confidence_floor(min_confidence), business_model, geography
+    )
     return StreamingResponse(
         iter_xlsx(stmt),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

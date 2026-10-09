@@ -925,6 +925,12 @@
             {% endfor %}
           </select>
         </label>
+        <label>Business model
+          <input name="business_model" value="{{ filters.business_model }}" placeholder="SaaS, marketplace">
+        </label>
+        <label>Geography
+          <input name="geography" value="{{ filters.geography }}" placeholder="Country or region">
+        </label>
         <label>Status
           <select name="status">
             <option value="">Any</option>
@@ -1025,7 +1031,7 @@
             <ul class="evidence">
               {% for item in site.evidence_items %}
               <li>
-                <strong>{{ item.field or "quote" }}</strong>{% if item.page %} · {{ item.page }}{% endif %}
+                <strong>{{ item.field or "quote" }}</strong>{% if item.page %} · {{ item.page }}{% endif %}{% if item.method %} · {{ item.method }}{% endif %}
                 <p>“{{ item.quote }}”</p>
               </li>
               {% endfor %}
@@ -1052,6 +1058,10 @@
             <div class="field">
               <span>Industry</span>
               <strong class="{% if not site.industry %}empty{% endif %}" {% if site.industry %}title="{{ site.industry }}"{% endif %}>{{ site.industry or "—" }}</strong>
+            </div>
+            <div class="field">
+              <span>Also in</span>
+              <strong class="{% if not site.secondary_industry %}empty{% endif %}">{{ site.secondary_industry or "—" }}</strong>
             </div>
             <div class="field">
               <span>Niche</span>
@@ -1212,7 +1222,7 @@
       toast.innerHTML =
         '<span class="toast-dot" aria-hidden="true"></span>' +
         '<div class="toast-body">' +
-          '<p class="toast-title">{% if crawl %}Crawl started{% elif review %}Review saved{% elif stopped %}Import stopped{% else %}Import finished{% endif %}</p>' +
+          '<p class="toast-title">{% if crawl %}Crawl started{% elif review %}Review saved{% elif stopped %}{{ stopped_title }}{% else %}Import finished{% endif %}</p>' +
           '<p class="toast-text">{{ message|e }}</p>' +
         "</div>" +
         '<button class="toast-close" type="button" aria-label="Dismiss">×</button>';

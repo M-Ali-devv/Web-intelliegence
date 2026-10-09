@@ -32,6 +32,8 @@ EXPORT_COLUMNS = (
     "classification_status",
     "last_crawled_at",
     "error",
+    "secondary_industry",
+    "sub_niche",
 )
 
 
@@ -61,12 +63,25 @@ def evidence_of(site: Website) -> list[dict]:
     return items
 
 
+def _split_statuses(site: Website) -> tuple[str, str]:
+    crawl = site.crawl_status or ""
+    classification = site.classification_status or ""
+    if crawl or classification:
+        return crawl, classification
+    if site.status in AI_STATUSES:
+        crawl = "crawled" if site.clean_text else ""
+        return crawl, site.status or ""
+    return site.status or "", ""
+
+
 def filtered_select(
     q: str = "",
     industry: str = "",
     business_type: str = "",
     status: str = "",
     min_confidence: int | None = None,
+    business_model: str = "",
+    geography: str = "",
 ) -> Select:
     stmt = select(Website)
     text = q.strip()
@@ -91,6 +106,10 @@ def filtered_select(
         stmt = stmt.where(Website.status == status)
     if min_confidence is not None:
         stmt = stmt.where(Website.confidence >= min_confidence)
+    if business_model.strip():
+        stmt = stmt.where(Website.business_model.ilike(f"%{business_model.strip()}%"))
+    if geography.strip():
+        stmt = stmt.where(Website.geographic_markets.ilike(f"%{geography.strip()}%"))
     return stmt.order_by(Website.id.asc())
 
 
@@ -106,23 +125,28 @@ def export_row(site: Website) -> dict[str, str]:
     markets = meta.get("target_customers") or []
     places = meta.get("geographic_markets") or []
     models = meta.get("business_model") or []
+    model_text = site.business_model or ("; ".join(models) if isinstance(models, list) else str(models or ""))
+    place_text = site.geographic_markets or ("; ".join(places) if isinstance(places, list) else str(places or ""))
+    crawl_status, classification_status = _split_statuses(site)
     return {
         "original_url": site.original_url or "",
         "normalized_domain": site.normalized_website or "",
         "company_name": site.company_name or "",
         "business_description": site.description or "",
         "business_type": site.business_type or "",
-        "business_model": "; ".join(models) if isinstance(models, list) else str(models or ""),
+        "business_model": model_text,
         "industry": site.industry or "",
         "niche": site.niche or "",
         "products": site.products or "",
         "services": site.services or "",
         "target_markets": "; ".join(markets) if isinstance(markets, list) else str(markets or ""),
-        "geographic_markets": "; ".join(places) if isinstance(places, list) else str(places or ""),
+        "geographic_markets": place_text,
         "confidence": "" if site.confidence is None else str(site.confidence),
         "evidence": " | ".join(quotes),
-        "crawl_status": ("crawled" if site.clean_text else "") if site.status in AI_STATUSES else (site.status or ""),
-        "classification_status": site.status if site.status in AI_STATUSES else "",
+        "crawl_status": crawl_status,
+        "classification_status": classification_status,
         "last_crawled_at": when,
         "error": site.crawl_error or "",
+        "secondary_industry": site.secondary_industry or "",
+        "sub_niche": site.sub_niche or "",
     }
