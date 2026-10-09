@@ -27,6 +27,30 @@ def _is_public(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     )
 
 
+_BLOCKED_HOSTS = {
+    "localhost",
+    "metadata.google.internal",
+}
+_BLOCKED_SUFFIXES = (".localhost", ".local", ".internal")
+
+
+def is_safe_import_target(url: str) -> bool:
+    """Reject obvious non-public hosts before a row is stored.
+
+    Literal private, loopback, and link-local addresses are refused here.
+    Normal domain names are accepted; the crawler still checks DNS on fetch.
+    """
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if not host or host in _BLOCKED_HOSTS or host.endswith(_BLOCKED_SUFFIXES):
+        return False
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return True
+    return _is_public(ip)
+
+
 def assert_public_url(url: str) -> str:
     """Return the URL when its host resolves only to public addresses.
 

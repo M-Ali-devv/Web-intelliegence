@@ -809,7 +809,7 @@
       <div class="panel-head">
         <div>
           <h2>Import websites</h2>
-          <p class="sub">Paste one address per line, or upload a CSV. The same company is saved only once.</p>
+          <p class="sub">Paste one address per line, or upload a CSV or Excel file. The same company is saved only once.</p>
         </div>
         <form method="post" action="/crawl">
           <button class="ghost" type="submit">Crawl pending websites</button>
@@ -820,7 +820,7 @@
         <textarea id="urls" name="urls" placeholder="https://stripe.com&#10;https://openai.com"></textarea>
         <div class="import-foot">
           <label class="file-picker" id="file-picker" for="import-file">
-            <input id="import-file" name="file" type="file" accept=".csv,.txt,text/csv,text/plain">
+            <input id="import-file" name="file" type="file" accept=".csv,.txt,.xlsx,text/csv,text/plain">
             <span class="file-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
@@ -829,7 +829,7 @@
               </svg>
             </span>
             <span class="file-copy">
-              <strong>Choose CSV or text file</strong>
+              <strong>Choose CSV, text, or Excel file</strong>
               <span id="file-name">No file selected</span>
             </span>
           </label>

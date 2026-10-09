@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 
 from app.crawler.runner import run as run_crawl
 from app.database import get_session, init_db
-from app.importer import import_urls
+from app.importer import excel_to_text, import_urls
 from app.models import Website
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -141,7 +141,11 @@ async def import_list(
 ):
     text = urls
     if file is not None and file.filename:
-        text += "\n" + (await file.read()).decode("utf-8", errors="replace")
+        payload = await file.read()
+        if file.filename.lower().endswith(".xlsx"):
+            text += "\n" + excel_to_text(payload)
+        else:
+            text += "\n" + payload.decode("utf-8", errors="replace")
 
     with get_session() as session:
         result = import_urls(session, text)

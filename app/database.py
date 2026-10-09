@@ -22,6 +22,7 @@ SessionLocal = sessionmaker(bind=engine)
 
 # Added onto an existing websites table. create_all does not alter old tables.
 EXTRA_COLUMNS = {
+    "job_id": "INTEGER",
     "clean_text": "TEXT",
     "crawl_error": "TEXT",
     "pages_crawled": "INTEGER",

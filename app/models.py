@@ -8,12 +8,30 @@ Until then those columns stay empty.
 
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
     pass
+
+
+class Job(Base):
+    """One durable record per import. Survives a restart; websites point at it."""
+
+    __tablename__ = "jobs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(32), default="import")
+    status: Mapped[str] = mapped_column(String(32), default="queued")
+    added: Mapped[int] = mapped_column(Integer, default=0)
+    duplicates: Mapped[int] = mapped_column(Integer, default=0)
+    invalid: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class Website(Base):
@@ -23,6 +41,7 @@ class Website(Base):
     original_url: Mapped[str] = mapped_column(String(2048))
     normalized_website: Mapped[str] = mapped_column(String(2048), unique=True, index=True)
     status: Mapped[str] = mapped_column(String(32), default="pending")
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"), nullable=True, index=True)
     source_batch: Mapped[str | None] = mapped_column(String(255), nullable=True)
     clean_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     crawl_error: Mapped[str | None] = mapped_column(Text, nullable=True)

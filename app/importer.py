@@ -9,11 +9,13 @@ A row is skipped when:
 import csv
 import io
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Website
+from app.crawler.guard import is_safe_import_target
+from app.models import Job, Website
 from app.normalize import normalize_website
 
 URL_COLUMNS = {"url", "original_url", "website", "website_url", "link"}
@@ -59,14 +61,39 @@ def extract_urls(text: str) -> list[str]:
     return urls
 
 
+def excel_to_text(data: bytes) -> str:
+    """Turn the first worksheet of an .xlsx file into CSV text for extract_urls."""
+    from openpyxl import load_workbook
+
+    book = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    try:
+        sheet = book.active
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        for row in sheet.iter_rows(values_only=True):
+            cells = ["" if cell is None else str(cell).strip() for cell in row]
+            if any(cells):
+                writer.writerow(cells)
+        return buffer.getvalue()
+    finally:
+        book.close()
+
+
 def import_urls(session: Session, text: str, source_batch: str | None = None) -> ImportResult:
     result = ImportResult()
+    raw_urls = extract_urls(text)
+    if not raw_urls:
+        return result
+
     batch = source_batch.strip() if source_batch and source_batch.strip() else None
     seen_in_this_batch: set[str] = set()
+    job = Job(kind="import", status="queued")
+    session.add(job)
+    session.flush()
 
-    for raw in extract_urls(text):
+    for raw in raw_urls:
         normalized = normalize_website(raw)
-        if normalized is None:
+        if normalized is None or not is_safe_import_target(normalized):
             result.invalid.append(raw)
             continue
 
@@ -88,10 +115,16 @@ def import_urls(session: Session, text: str, source_batch: str | None = None) ->
                 normalized_website=normalized,
                 status="pending",
                 source_batch=batch,
+                job_id=job.id,
             )
         )
         seen_in_this_batch.add(normalized)
         result.added += 1
 
+    job.added = result.added
+    job.duplicates = len(result.duplicates)
+    job.invalid = len(result.invalid)
+    job.status = "queued" if result.added else "completed"
+    job.finished_at = datetime.now(timezone.utc).replace(tzinfo=None)
     session.commit()
     return result
