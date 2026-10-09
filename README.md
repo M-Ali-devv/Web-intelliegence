@@ -8,10 +8,11 @@ target market) with Excel-ready export.
 
 | Stage | Module | Status |
 |---|---|---|
-| 1. Save the URL list | `app/importer.py`, `app/main.py` (Step 1) | ✅ done |
-| 2. Crawl sites → `clean_text` | `app/crawler/` + `app/crawler_cli.py` | ✅ done — see below |
-| 3. AI classification → company fields | *(next member)* | ⬜ |
-| 4–6. Review, dashboard, export | *future stages* | ⬜ |
+| 1. Save the URL list | `app/importer.py`, `app/main.py` | done |
+| 2. Crawl sites → `clean_text` | `app/crawler/` + `app/crawler_cli.py` | done |
+| 3. AI classification | `app/classifier.py`, `app/ai/` | done |
+| 4. Search, review, export | `app/records.py`, `app/exporters.py` | done |
+| 5. Hardening | `app/ops.py`, `app/recovery.py`, `app/report.py` | done — see below |
 
 ---
 
@@ -54,8 +55,8 @@ The UI run is a background task: wait ~10 seconds, refresh, and watch the
 
 ### What the crawler writes
 
-For every imported website the crawler fetches the homepage plus up to 4
-priority pages (About / Services / Products / Industries — max **5 pages**,
+For every imported website the crawler fetches the homepage plus ranked
+business pages (About / Services / Products / Industries — max **8 pages**,
 configurable in `app/crawler/config.py`), strips boilerplate, and stores one
 consolidated profile in the `clean_text` column of the `websites` table.
 
@@ -124,6 +125,32 @@ Bookkeeping columns written by the crawler: `crawl_error`, `pages_crawled`,
 
 ---
 
+## Run and look after it
+
+Use one process at a time. The database is `data/websites.db`. Bind the site to this machine:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+`http://127.0.0.1:8000/health` reports whether the database can be read.
+
+```powershell
+.\.venv\Scripts\python.exe -m app.ops report
+.\.venv\Scripts\python.exe -m app.ops backup
+.\.venv\Scripts\python.exe -m app.ops recover
+.\.venv\Scripts\python.exe -m app.ops benchmark
+```
+
+- **report** counts the rows already saved (crawl success, useful text, review rate, browser fallback). It names the next scale stage. It does not claim the system is ready for 60,000 websites.
+- **backup** copies the database into `data/backups/` and keeps the newest copies (`BACKUP_KEEP`, default 7).
+- **recover** puts interrupted `crawling` rows back to `pending` and marks interrupted crawl or classify jobs failed.
+- **benchmark** times search and export shaping on a temporary database. It does not crawl the network.
+
+A crawl claim with no timestamp, or one older than `CRAWL_STUCK_MINUTES` (default 30), is returned to the queue by the next crawl. Uploads larger than `MAX_UPLOAD_BYTES` (default 5 MB) are refused. Limits can be set in `.env`; see `.env.example`.
+
+Stay on about 100 representative websites until crawl quality and a manual check of the classifications look right. Then move toward 500–1,000, and only then raise the batch size. Do not raise concurrency just because the report printed.
+
 ## Tests
 
 ```bash
@@ -153,9 +180,9 @@ a full UI click → background run → refreshed page flow via FastAPI
 | Windows users | Use `.venv\Scripts\` instead of `.venv/bin/` in every command |
 | `pytest` not found | Install dev deps first: `.venv/bin/pip install -r requirements-dev.txt` |
 
-## Known limits (Phase 2, per the requirements document)
+## Known limits
 
-- JavaScript-only sites are fetched as static HTML (no Playwright yet).
-- No PDF extraction, no periodic re-crawl, no LLM classification (Module 3).
-- Designed for one crawler process at a time (SQLite). At 60K scale the
-  proposal recommends PostgreSQL + a queue (Redis/Celery).
+- JavaScript-only pages can use Playwright when it is installed. The Chromium browser is not installed by default, so those pages stay on the HTTP result until `playwright install chromium`.
+- No PDF extraction and no periodic re-crawl.
+- One process at a time (SQLite). A larger deployment can move the same tables to PostgreSQL; that move is not done here.
+- The pilot report describes the rows you have saved. It is not a measured runtime for 60,000 websites.
