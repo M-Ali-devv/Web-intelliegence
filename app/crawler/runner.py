@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 import httpx
-from sqlalchemy import select, update
+from sqlalchemy import select
 
 from app.crawler import config
 from app.crawler.fetcher import RobotsRules
@@ -21,6 +21,7 @@ from app.database import get_session
 from app.limits import crawl_concurrency
 from app.models import Job, Website
 from app.observe import log_event
+from app.profile import apply_crawl_result, record_domain
 from app.recovery import release_stale_claims, utcnow
 
 
@@ -64,6 +65,7 @@ def _claim(site_ids: list[int] | None, limit: int | None, force: bool) -> tuple[
         claims: list[tuple[int, str]] = []
         for site in session.scalars(stmt):
             site.status = config.STATUS_CRAWLING
+            site.crawl_status = config.STATUS_CRAWLING
             site.claimed_at = claimed_at
             claims.append((site.id, site.normalized_website))
         job_id = None
@@ -77,17 +79,24 @@ def _claim(site_ids: list[int] | None, limit: int | None, force: bool) -> tuple[
 
 
 def _save(site_id: int, result: CrawlResult) -> None:
+    website = ""
     with get_session() as session:
         site = session.get(Website, site_id)
         if site is None:
             return
-        site.status = result.status
-        site.clean_text = result.clean_text
-        site.crawl_error = result.error
-        site.pages_crawled = result.pages_crawled
-        site.last_crawled_at = _utcnow()
-        site.claimed_at = None
+        website = site.normalized_website
+        apply_crawl_result(site, result, _utcnow())
         session.commit()
+    if website:
+        record_domain(website, result, _utcnow())
+
+
+def _is_cancelled(job_id: int | None) -> bool:
+    if job_id is None:
+        return False
+    with get_session() as session:
+        job = session.get(Job, job_id)
+        return job is not None and job.status == "cancelled"
 
 
 def _close_job(job_id: int | None, status: str, summary: RunSummary, note: str = "") -> None:
@@ -108,11 +117,17 @@ def _release_unfinished(site_ids: list[int]) -> None:
     if not site_ids:
         return
     with get_session() as session:
-        session.execute(
-            update(Website)
-            .where(Website.id.in_(site_ids), Website.status == config.STATUS_CRAWLING)
-            .values(status=config.STATUS_PENDING, claimed_at=None)
+        sites = session.scalars(
+            select(Website).where(Website.id.in_(site_ids), Website.status == config.STATUS_CRAWLING)
         )
+        for site in sites:
+            site.claimed_at = None
+            if site.classification_status:
+                site.status = site.classification_status
+                site.crawl_status = site.crawl_status or config.STATUS_CRAWLED
+            else:
+                site.status = config.STATUS_PENDING
+                site.crawl_status = config.STATUS_PENDING
         session.commit()
 
 
@@ -155,6 +170,7 @@ async def _run_inside(
 
     log_event("crawl_started", sites=len(targets), job_id=job_id)
     closed = False
+    cancelled = False
     try:
         semaphore = asyncio.Semaphore(concurrency or crawl_concurrency())
         robots_cache: dict[str, RobotsRules] = {}
@@ -176,17 +192,28 @@ async def _run_inside(
             ]
             done = 0
             for coro in asyncio.as_completed(tasks):
+                if _is_cancelled(job_id):
+                    cancelled = True
+                    break
                 site_id, result = await coro
                 _save(site_id, result)
                 summary.counts[result.status] = summary.counts.get(result.status, 0) + 1
                 done += 1
                 if done % 10 == 0 or done == len(tasks):
                     log(f"  {done}/{len(tasks)} done — {result.status} (site #{site_id})")
+            if cancelled:
+                for task in tasks:
+                    task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
 
         summary.seconds = round(time.monotonic() - started, 1)
-        _close_job(job_id, "completed", summary)
+        if cancelled:
+            _close_job(job_id, "cancelled", summary, "Cancelled by an operator.")
+            log_event("crawl_cancelled", sites=summary.total, job_id=job_id)
+        else:
+            _close_job(job_id, "completed", summary)
+            log_event("crawl_finished", sites=summary.total, seconds=summary.seconds, counts=summary.counts, job_id=job_id)
         closed = True
-        log_event("crawl_finished", sites=summary.total, seconds=summary.seconds, counts=summary.counts, job_id=job_id)
         return summary
     finally:
         _release_unfinished([site_id for site_id, _url in targets])
