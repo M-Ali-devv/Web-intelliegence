@@ -4,6 +4,7 @@
     python -m app.ops backup
     python -m app.ops recover
     python -m app.ops benchmark
+    python -m app.ops cancel --job 4
 """
 
 from __future__ import annotations
@@ -14,7 +15,8 @@ import json
 from app.backup import backup_database
 from app.benchmark import measure
 from app.database import get_session, init_db
-from app.recovery import recover_abandoned
+from app.models import Job
+from app.recovery import recover_abandoned, utcnow
 from app.report import build_report
 
 
@@ -39,7 +41,8 @@ def _print_report(report: dict) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Backup, recover, and report on the local database.")
-    parser.add_argument("command", choices=("report", "backup", "recover", "benchmark"))
+    parser.add_argument("command", choices=("report", "backup", "recover", "benchmark", "cancel"))
+    parser.add_argument("--job", type=int, default=None, help="job id for cancel")
     parser.add_argument("--rows", type=int, default=200, help="rows for the local benchmark")
     parser.add_argument("--json", action="store_true", help="print the report as JSON")
     args = parser.parse_args()
@@ -63,6 +66,19 @@ def main() -> None:
             f"Reset {result['websites_reset']} crawling website(s). "
             f"Marked {result['jobs_failed']} interrupted job(s) failed."
         )
+        return
+    if args.command == "cancel":
+        if args.job is None:
+            raise SystemExit("Pass --job with the id of a running job.")
+        with get_session() as session:
+            job = session.get(Job, args.job)
+            if job is None or job.status != "running":
+                raise SystemExit("That job is not running.")
+            job.status = "cancelled"
+            job.finished_at = utcnow()
+            job.note = "Cancelled by an operator."
+            session.commit()
+        print(f"Job {args.job} cancelled.")
         return
     result = measure(args.rows)
     print(
