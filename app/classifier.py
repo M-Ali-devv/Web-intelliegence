@@ -15,6 +15,7 @@ from app.ai.provider import get_provider
 from app.database import get_session, init_db
 from app.models import Job, Website
 from app.observe import log_event
+from app.profile import replace_evidence
 from app.recovery import utcnow
 
 load_dotenv()
@@ -32,11 +33,19 @@ def classify_site(site: Website, provider=None) -> None:
     site.business_type = outcome.business_type
     site.industry = outcome.industry
     site.niche = outcome.niche
+    site.secondary_industry = outcome.secondary_industry
+    site.sub_niche = outcome.sub_niche
+    site.business_model = outcome.business_model
+    site.geographic_markets = outcome.geographic_markets
     site.products = outcome.products
     site.confidence = outcome.confidence
-    site.evidence = json.dumps(outcome.evidence, ensure_ascii=False)
+    quotes = replace_evidence(site, outcome.evidence, outcome.confidence)
+    site.evidence = json.dumps(quotes, ensure_ascii=False)
     site.classification_meta = json.dumps(outcome.meta, ensure_ascii=False)
+    site.classification_status = outcome.status
     site.status = outcome.status
+    if site.clean_text and not site.crawl_status:
+        site.crawl_status = "crawled"
 
 
 def _open_classify_job(total: int) -> int:

@@ -143,6 +143,10 @@ class ClassificationOutcome:
     evidence: list[dict]
     status: str
     meta: dict
+    secondary_industry: str | None = None
+    sub_niche: str | None = None
+    business_model: str | None = None
+    geographic_markets: str | None = None
 
 
 def classify_text(text: str, pages_crawled: int, provider: LLMProvider) -> ClassificationOutcome:
@@ -174,6 +178,11 @@ def classify_text(text: str, pages_crawled: int, provider: LLMProvider) -> Class
         CUSTOMER_TYPE_CATEGORIES, mapping.customer_type_id, FALLBACK_CUSTOMER
     )
     status = status_for(score, facts.insufficient_evidence or not facts.evidence)
+    industries = [item.strip() for item in facts.industries if item and item.strip()]
+    secondary = [item for item in industries if item.casefold() != industry.casefold()]
+    niches = [item.strip() for item in facts.niches if item and item.strip()]
+    chosen_niche = mapping.niche or ""
+    sub_niches = [item for item in niches if item.casefold() != chosen_niche.casefold()]
     return ClassificationOutcome(
         company_name=(facts.company_name or "").strip() or None,
         description=(facts.business_description or "").strip() or None,
@@ -201,4 +210,8 @@ def classify_text(text: str, pages_crawled: int, provider: LLMProvider) -> Class
             "suggested_category": mapping.suggested_category,
             "insufficient_evidence": facts.insufficient_evidence,
         },
+        secondary_industry="; ".join(secondary) or None,
+        sub_niche="; ".join(sub_niches) or None,
+        business_model="; ".join(item.strip() for item in facts.business_model if item and item.strip()) or None,
+        geographic_markets="; ".join(item.strip() for item in facts.geographic_markets if item and item.strip()) or None,
     )
