@@ -36,6 +36,7 @@ EXTRA_COLUMNS = {
     "services": "TEXT",
     "confidence": "INTEGER",
     "evidence": "TEXT",
+    "classification_meta": "TEXT",
 }
 
 

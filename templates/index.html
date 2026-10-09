@@ -878,7 +878,7 @@
     {% set status_class =
       "ok" if status in ["crawled", "classified"]
       else "bad" if status in ["failed", "unreachable", "blocked", "robots_blocked", "invalid", "classify_failed"]
-      else "warn" if status in ["empty", "needs_review"]
+      else "warn" if status in ["empty", "needs_review", "insufficient_evidence"]
       else "busy" if status == "crawling"
       else ""
     %}

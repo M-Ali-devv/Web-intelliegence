@@ -56,6 +56,7 @@ class Website(Base):
     services: Mapped[str | None] = mapped_column(Text, nullable=True)
     confidence: Mapped[int | None] = mapped_column(Integer, nullable=True)
     evidence: Mapped[str | None] = mapped_column(Text, nullable=True)
+    classification_meta: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),

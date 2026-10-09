@@ -89,7 +89,7 @@ def home(
         issues = session.scalar(
             select(func.count()).select_from(Website).where(
                 Website.status.in_(
-                    ("failed", "blocked", "unreachable", "robots_blocked", "invalid", "classify_failed", "empty")
+                    ("failed", "blocked", "unreachable", "robots_blocked", "invalid", "classify_failed", "empty", "insufficient_evidence")
                 )
             )
         ) or 0
