@@ -15,6 +15,9 @@ import asyncio
 
 from app.crawler import config
 from app.crawler.runner import run
+from app.database import init_db
+from app.limits import crawl_concurrency
+from app.recovery import recover_abandoned
 
 
 def main() -> None:
@@ -24,13 +27,21 @@ def main() -> None:
                         help="crawl a specific row (repeatable)")
     parser.add_argument("--force", action="store_true",
                         help="crawl rows regardless of their current status")
-    parser.add_argument("--concurrency", type=int, default=config.CONCURRENCY,
+    parser.add_argument("--concurrency", type=int, default=None,
                         help=f"parallel websites (default {config.CONCURRENCY})")
     args = parser.parse_args()
 
+    init_db()
+    recovered = recover_abandoned()
+    if recovered["websites_reset"] or recovered["jobs_failed"]:
+        print(
+            f"Recovered {recovered['websites_reset']} crawling website(s) "
+            f"and {recovered['jobs_failed']} interrupted job(s)."
+        )
+
     summary = asyncio.run(
         run(limit=args.limit, site_ids=args.ids, force=args.force,
-            concurrency=args.concurrency)
+            concurrency=args.concurrency or crawl_concurrency())
     )
 
     print(f"\nCrawled {summary.total} website(s) in {summary.seconds}s")

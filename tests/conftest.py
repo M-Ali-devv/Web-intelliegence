@@ -15,6 +15,8 @@ def db(tmp_path, monkeypatch):
     Base.metadata.create_all(engine)
     monkeypatch.setattr(database, "engine", engine)
     monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setenv("OBSERVE_ECHO", "0")
+    monkeypatch.setenv("OBSERVE_LOG", str(tmp_path / "events.jsonl"))
     yield engine
 
 
