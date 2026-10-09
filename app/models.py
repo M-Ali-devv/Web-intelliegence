@@ -64,6 +64,13 @@ class Website(Base):
     confidence: Mapped[int | None] = mapped_column(Integer, nullable=True)
     evidence: Mapped[str | None] = mapped_column(Text, nullable=True)
     classification_meta: Mapped[str | None] = mapped_column(Text, nullable=True)
+    crawl_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    classification_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    secondary_industry: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    sub_niche: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    business_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    geographic_markets: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
@@ -74,4 +81,40 @@ class Website(Base):
         Index("ix_websites_industry", "industry"),
         Index("ix_websites_business_type", "business_type"),
         Index("ix_websites_confidence", "confidence"),
+        Index("ix_websites_crawl_status", "crawl_status"),
+        Index("ix_websites_classification_status", "classification_status"),
     )
+
+
+class EvidenceRecord(Base):
+    """One grounded quote. The website row still keeps the same quotes as JSON."""
+
+    __tablename__ = "evidence_records"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    website_id: Mapped[int] = mapped_column(ForeignKey("websites.id"), index=True)
+    field: Mapped[str] = mapped_column(String(64), default="")
+    quote: Mapped[str] = mapped_column(Text)
+    page: Mapped[str] = mapped_column(String(80), default="")
+    source_url: Mapped[str] = mapped_column(String(2048), default="")
+    method: Mapped[str] = mapped_column(String(32), default="")
+    quality: Mapped[str] = mapped_column(String(32), default="explicit")
+    confidence: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    retrieved_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+    )
+
+
+class DomainStat(Base):
+    """Latest timing and success count for one hostname."""
+
+    __tablename__ = "domain_stats"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    domain: Mapped[str] = mapped_column(String(255), unique=True)
+    last_latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_status: Mapped[str] = mapped_column(String(32), default="")
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    success_count: Mapped[int] = mapped_column(Integer, default=0)
+    failure_count: Mapped[int] = mapped_column(Integer, default=0)

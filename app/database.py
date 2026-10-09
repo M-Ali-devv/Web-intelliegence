@@ -5,6 +5,7 @@ separate database server. The table shape is the same one we can later move
 to PostgreSQL.
 """
 
+import hashlib
 from pathlib import Path
 
 from sqlalchemy import create_engine, inspect, text
@@ -38,6 +39,13 @@ EXTRA_COLUMNS = {
     "evidence": "TEXT",
     "classification_meta": "TEXT",
     "claimed_at": "DATETIME",
+    "crawl_status": "VARCHAR(32)",
+    "classification_status": "VARCHAR(32)",
+    "content_hash": "VARCHAR(64)",
+    "secondary_industry": "VARCHAR(255)",
+    "sub_niche": "VARCHAR(255)",
+    "business_model": "VARCHAR(255)",
+    "geographic_markets": "VARCHAR(512)",
 }
 
 JOB_EXTRA_COLUMNS = {
@@ -51,7 +59,12 @@ INDEX_STATEMENTS = (
     "CREATE INDEX IF NOT EXISTS ix_websites_confidence ON websites (confidence)",
     "CREATE INDEX IF NOT EXISTS ix_jobs_status ON jobs (status)",
     "CREATE INDEX IF NOT EXISTS ix_jobs_kind ON jobs (kind)",
+    "CREATE INDEX IF NOT EXISTS ix_websites_crawl_status ON websites (crawl_status)",
+    "CREATE INDEX IF NOT EXISTS ix_websites_classification_status ON websites (classification_status)",
+    "CREATE INDEX IF NOT EXISTS ix_evidence_website ON evidence_records (website_id)",
 )
+
+_AI_STATUSES = ("classified", "needs_review", "insufficient_evidence", "classify_failed")
 
 
 def _add_missing(connection, table: str, columns: dict[str, str]) -> None:
@@ -69,6 +82,48 @@ def init_db() -> None:
         _add_missing(connection, "jobs", JOB_EXTRA_COLUMNS)
         for statement in INDEX_STATEMENTS:
             connection.execute(text(statement))
+        _backfill_statuses(connection)
+
+
+def _backfill_statuses(connection) -> None:
+    """Fill the split status columns on rows saved before they existed."""
+    ai_list = ", ".join(f"'{status}'" for status in _AI_STATUSES)
+    connection.execute(
+        text(
+            f"""
+            UPDATE websites
+            SET classification_status = status,
+                crawl_status = CASE
+                    WHEN clean_text IS NOT NULL AND clean_text != '' THEN 'crawled'
+                    ELSE ''
+                END
+            WHERE crawl_status IS NULL AND status IN ({ai_list})
+            """
+        )
+    )
+    connection.execute(
+        text(
+            """
+            UPDATE websites
+            SET crawl_status = status
+            WHERE crawl_status IS NULL
+            """
+        )
+    )
+    rows = connection.execute(
+        text(
+            """
+            SELECT id, clean_text FROM websites
+            WHERE content_hash IS NULL AND clean_text IS NOT NULL AND clean_text != ''
+            """
+        )
+    ).all()
+    for site_id, clean_text in rows:
+        digest = hashlib.sha256(clean_text.encode("utf-8")).hexdigest()
+        connection.execute(
+            text("UPDATE websites SET content_hash = :digest WHERE id = :site_id"),
+            {"digest": digest, "site_id": site_id},
+        )
 
 
 def get_session() -> Session:
