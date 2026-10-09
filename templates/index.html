@@ -1212,7 +1212,7 @@
       toast.innerHTML =
         '<span class="toast-dot" aria-hidden="true"></span>' +
         '<div class="toast-body">' +
-          '<p class="toast-title">{% if crawl %}Crawl started{% elif review %}Review saved{% else %}Import finished{% endif %}</p>' +
+          '<p class="toast-title">{% if crawl %}Crawl started{% elif review %}Review saved{% elif stopped %}Import stopped{% else %}Import finished{% endif %}</p>' +
           '<p class="toast-text">{{ message|e }}</p>' +
         "</div>" +
         '<button class="toast-close" type="button" aria-label="Dismiss">×</button>';
@@ -1229,7 +1229,7 @@
       // Drop ?crawl / ?imported from the URL so a manual refresh does not show the toast again.
       if (window.history.replaceState) {
         const url = new URL(window.location.href);
-        ["crawl", "imported", "added", "duplicates", "invalid", "site", "review"].forEach((key) => {
+        ["crawl", "imported", "added", "duplicates", "invalid", "site", "review", "notice"].forEach((key) => {
           url.searchParams.delete(key);
         });
         window.history.replaceState({}, "", url.pathname + (url.search || "") + url.hash);

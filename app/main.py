@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 
@@ -20,8 +20,12 @@ from app.crawler.runner import run as run_crawl
 from app.database import get_session, init_db
 from app.exporters import iter_csv, iter_json, iter_xlsx
 from app.importer import excel_to_text, import_urls
+from app.limits import max_import_chars, max_upload_bytes
 from app.models import Website
+from app.observe import log_event
 from app.records import evidence_of, filtered_select, meta_of
+from app.recovery import recover_abandoned
+from app.security import SecurityHeadersMiddleware
 from app.taxonomy import BUSINESS_TYPES, INDUSTRIES
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -52,10 +56,26 @@ templates.env.filters["preview_clean"] = preview_clean_text
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
+    recovered = recover_abandoned()
+    if recovered["websites_reset"] or recovered["jobs_failed"]:
+        log_event("queue_recovered", **recovered)
     yield
 
 
 app = FastAPI(title="Website Intelligence — Step 1", lifespan=lifespan)
+app.add_middleware(SecurityHeadersMiddleware)
+
+
+@app.get("/health")
+def health():
+    """Whether this process can read the local database."""
+    try:
+        with get_session() as session:
+            total = session.scalar(select(func.count()).select_from(Website)) or 0
+    except Exception as exc:
+        log_event("health_failed", error=type(exc).__name__)
+        return JSONResponse({"ok": False, "error": "database unavailable"}, status_code=503)
+    return {"ok": True, "websites": total}
 
 
 def _confidence_floor(value: str | None) -> int | None:
@@ -88,6 +108,7 @@ def home(
     imported: int = 0,
     crawl: int = 0,
     review: int = 0,
+    notice: str = "",
     q: str = "",
     industry: str = "",
     business_type: str = "",
@@ -130,7 +151,12 @@ def home(
             site.review_decision = meta_of(site).get("review_decision") or ""
         session.expunge_all()
 
-    if imported:
+    if notice == "upload":
+        message = (
+            f"That file is larger than the upload limit ({max_upload_bytes():,} bytes), "
+            "so it was not imported."
+        )
+    elif imported:
         message = _message(added, duplicates, invalid)
     elif crawl:
         message = "Crawl started. Updating results shortly…"
@@ -156,6 +182,7 @@ def home(
             "websites": websites,
             "message": message,
             "crawl": bool(crawl),
+            "stopped": notice == "upload",
             "page": page,
             "per_page": per_page,
             "total": total,
@@ -186,10 +213,16 @@ async def import_list(
     text = urls
     if file is not None and file.filename:
         payload = await file.read()
+        if len(payload) > max_upload_bytes():
+            log_event("upload_rejected", bytes=len(payload))
+            return RedirectResponse("/?notice=upload", status_code=303)
         if file.filename.lower().endswith(".xlsx"):
             text += "\n" + excel_to_text(payload)
         else:
             text += "\n" + payload.decode("utf-8", errors="replace")
+    if len(text) > max_import_chars():
+        log_event("upload_rejected", chars=len(text))
+        return RedirectResponse("/?notice=upload", status_code=303)
 
     with get_session() as session:
         result = import_urls(session, text)
