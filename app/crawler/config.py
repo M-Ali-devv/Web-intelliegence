@@ -1,6 +1,16 @@
 """Crawler settings. Every limit the crawler respects lives here."""
 
+import os
+
 USER_AGENT = "WebIntelligenceCrawler/1.0 (+internal research)"
+
+
+def user_agent() -> str:
+    """Use a published contact when CRAWLER_CONTACT_URL is set."""
+    contact = os.environ.get("CRAWLER_CONTACT_URL", "").strip()
+    if contact:
+        return f"WebsiteIntelligenceBot/1.0 (+{contact})"
+    return USER_AGENT
 
 # Useful pages per website (homepage + ranked business pages).
 # The prompt asks for a budget of about 5–10. Stop earlier once

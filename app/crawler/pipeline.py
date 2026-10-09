@@ -44,6 +44,7 @@ class CrawlResult:
     error: str | None
     pages_crawled: int
     final_url: str | None = None
+    latency_ms: int | None = None
 
 
 def _page_label(url: str) -> str:
@@ -181,4 +182,11 @@ async def crawl_one(
     if len(profile) > config.MAX_TEXT_CHARS:
         profile = profile[: config.MAX_TEXT_CHARS].rsplit("\n", 1)[0] + "\n...[truncated]"
 
-    return CrawlResult(config.STATUS_CRAWLED, profile, None, len(pages), homepage.final_url)
+    return CrawlResult(
+        config.STATUS_CRAWLED,
+        profile,
+        None,
+        len(pages),
+        homepage.final_url,
+        homepage.elapsed_ms,
+    )

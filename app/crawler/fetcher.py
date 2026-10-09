@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from urllib import robotparser
 from urllib.parse import urljoin, urlparse, urlunparse
 
+import time
+
 import httpx
 
 from app.crawler import config
@@ -28,17 +30,19 @@ class FetchResult:
     status_code: int
     content: bytes
     content_type: str
+    elapsed_ms: int = 0
 
 
 def _request_headers() -> dict[str, str]:
     return {
-        "User-Agent": config.USER_AGENT,
+        "User-Agent": config.user_agent(),
         "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
         "Accept-Language": "en, *;q=0.5",
     }
 
 
 async def _one_attempt(client: httpx.AsyncClient, url: str, expect_html: bool) -> FetchResult:
+    started = time.perf_counter()
     current = url
     for _ in range(config.MAX_REDIRECTS + 1):
         assert_public_url(current)
@@ -77,6 +81,7 @@ async def _one_attempt(client: httpx.AsyncClient, url: str, expect_html: bool) -
             raise FetchError("too_large", f"page larger than {config.MAX_BYTES_PER_PAGE} bytes")
 
         return FetchResult(
+            elapsed_ms=int((time.perf_counter() - started) * 1000),
             requested_url=url,
             final_url=str(response.url),
             status_code=response.status_code,
@@ -112,7 +117,7 @@ class RobotsRules:
     missing: bool = False
 
     def allowed(self, url: str) -> bool:
-        return self.missing or self.parser.can_fetch(config.USER_AGENT, url)
+        return self.missing or self.parser.can_fetch(config.user_agent(), url)
 
 
 async def load_robots(client: httpx.AsyncClient, url: str, cache: dict[str, RobotsRules]) -> RobotsRules:
